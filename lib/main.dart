@@ -1,0 +1,122 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'services/auth_service.dart';
+import 'screens/home_screen.dart';
+import 'screens/search_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/profile_screen.dart';
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+    ),
+  );
+  runApp(const JagatFilmApp());
+}
+
+class JagatFilmApp extends StatelessWidget {
+  const JagatFilmApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => AuthService()..loadUser(),
+      child: MaterialApp(
+        title: 'JagatFilm',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          brightness: Brightness.dark,
+          primaryColor: const Color(0xFF6C63FF),
+          scaffoldBackgroundColor: const Color(0xFF0F0F1A),
+          colorScheme: const ColorScheme.dark(
+            primary: Color(0xFF6C63FF),
+            secondary: Color(0xFFFF6584),
+            surface: Color(0xFF1A1A2E),
+          ),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Color(0xFF0F0F1A),
+            elevation: 0,
+            centerTitle: true,
+          ),
+          cardTheme: CardTheme(
+            color: const Color(0xFF1A1A2E),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+            backgroundColor: Color(0xFF1A1A2E),
+            selectedItemColor: Color(0xFF6C63FF),
+            unselectedItemColor: Colors.grey,
+          ),
+        ),
+        home: const MainScreen(),
+      ),
+    );
+  }
+}
+
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
+
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  int _currentIndex = 0;
+
+  final List<Widget> _screens = [
+    const HomeScreen(),
+    const SearchScreen(),
+    const ProfileScreen(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _screens,
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          if (index == 2) {
+            final auth = Provider.of<AuthService>(context, listen: false);
+            if (!auth.isLoggedIn) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              );
+              return;
+            }
+          }
+          setState(() => _currentIndex = index);
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_rounded),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.search_rounded),
+            label: 'Cari',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_rounded),
+            label: 'Profil',
+          ),
+        ],
+      ),
+    );
+  }
+}

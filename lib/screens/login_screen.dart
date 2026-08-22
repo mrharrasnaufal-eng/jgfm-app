@@ -1,0 +1,257 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
+
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _nameController = TextEditingController();
+  bool _isLogin = true;
+  bool _obscurePassword = true;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _errorMessage = null);
+
+    final auth = Provider.of<AuthService>(context, listen: false);
+    String? error;
+
+    if (_isLogin) {
+      error = await auth.login(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
+    } else {
+      error = await auth.register(
+        _emailController.text.trim(),
+        _passwordController.text,
+        _nameController.text.trim(),
+      );
+    }
+
+    if (error == null) {
+      // Success
+      if (mounted) Navigator.pop(context);
+    } else {
+      setState(() => _errorMessage = error);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = Provider.of<AuthService>(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_isLogin ? 'Masuk' : 'Daftar'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 32),
+              // Logo/Icon
+              Icon(
+                Icons.movie_filter_rounded,
+                size: 64,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'JagatFilm',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _isLogin
+                    ? 'Masuk ke akun Anda'
+                    : 'Buat akun baru',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[400], fontSize: 14),
+              ),
+              const SizedBox(height: 40),
+
+              // Error message
+              if (_errorMessage != null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline,
+                          color: Colors.red, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(
+                              color: Colors.red, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // Name field (register only)
+              if (!_isLogin) ...[
+                TextFormField(
+                  controller: _nameController,
+                  decoration: _inputDecoration(
+                    'Nama Lengkap',
+                    Icons.person_outline_rounded,
+                  ),
+                  validator: (v) {
+                    if (!_isLogin && (v == null || v.trim().isEmpty)) {
+                      return 'Nama wajib diisi';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // Email
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: _inputDecoration(
+                  'Email',
+                  Icons.email_outlined,
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Email wajib diisi';
+                  if (!v.contains('@')) return 'Email tidak valid';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Password
+              TextFormField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                decoration: _inputDecoration(
+                  'Password',
+                  Icons.lock_outline_rounded,
+                ).copyWith(
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      color: Colors.grey[500],
+                    ),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
+                  ),
+                ),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Password wajib diisi';
+                  if (v.length < 6) return 'Minimal 6 karakter';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 24),
+
+              // Submit button
+              FilledButton(
+                onPressed: auth.isLoading ? null : _submit,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: auth.isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text(
+                        _isLogin ? 'Masuk' : 'Daftar',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+              ),
+              const SizedBox(height: 16),
+
+              // Toggle login/register
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _isLogin = !_isLogin;
+                    _errorMessage = null;
+                  });
+                },
+                child: Text(
+                  _isLogin
+                      ? 'Belum punya akun? Daftar'
+                      : 'Sudah punya akun? Masuk',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: Colors.grey[500]),
+      filled: true,
+      fillColor: const Color(0xFF1A1A2E),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: Theme.of(context).colorScheme.primary,
+          width: 1.5,
+        ),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.red),
+      ),
+    );
+  }
+}
