@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 import '../models/drama.dart';
 import '../services/api_service.dart';
+import '../services/update_service.dart';
 import '../widgets/drama_card.dart';
 import 'detail_screen.dart';
 
@@ -32,6 +33,10 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadDramas();
     _scrollController.addListener(_onScroll);
+    // Check for app update after frame is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      UpdateService.checkForUpdate(context);
+    });
   }
 
   @override
