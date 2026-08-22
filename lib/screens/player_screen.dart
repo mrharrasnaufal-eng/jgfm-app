@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:better_player/better_player.dart';
+import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
 import '../models/drama.dart';
 import '../services/api_service.dart';
 
@@ -22,7 +23,8 @@ class PlayerScreen extends StatefulWidget {
 
 class _PlayerScreenState extends State<PlayerScreen> {
   final ApiService _api = ApiService();
-  BetterPlayerController? _playerController;
+  VideoPlayerController? _videoController;
+  ChewieController? _chewieController;
   bool _isLoading = true;
   String? _error;
   StreamData? _streamData;
@@ -38,7 +40,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
-    _playerController?.dispose();
+    _chewieController?.dispose();
+    _videoController?.dispose();
     // Restore orientation
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -74,67 +77,37 @@ class _PlayerScreenState extends State<PlayerScreen> {
         return;
       }
 
-      // Setup subtitles
-      final subtitles = <BetterPlayerSubtitlesSource>[];
-      for (final sub in streamData.subtitles) {
-        subtitles.add(BetterPlayerSubtitlesSource(
-          type: BetterPlayerSubtitlesSourceType.network,
-          urls: [sub.proxiedUrl],
-          name: sub.label.isNotEmpty ? sub.label : sub.lang,
-          selectedByDefault: sub.lang.toLowerCase().contains('id') ||
-              sub.lang.toLowerCase().contains('indonesia'),
-        ));
-      }
+      // Dispose old controllers
+      _chewieController?.dispose();
+      _videoController?.dispose();
 
-      // Determine if HLS or MP4
-      final isHls = videoUrl.contains('.m3u8') ||
-          videoUrl.contains('/api/hls');
+      // Create VideoPlayerController
+      final uri = Uri.parse(videoUrl);
+      _videoController = VideoPlayerController.networkUrl(uri);
 
-      // Setup BetterPlayer
-      final dataSource = BetterPlayerDataSource(
-        BetterPlayerDataSourceType.network,
-        videoUrl,
-        videoFormat: isHls
-            ? BetterPlayerVideoFormat.hls
-            : BetterPlayerVideoFormat.other,
-        subtitles: subtitles,
-        headers: {
-          'User-Agent': 'JagatFilm-Android/1.0',
-        },
-      );
+      await _videoController!.initialize();
 
-      final config = BetterPlayerConfiguration(
+      // Create ChewieController
+      _chewieController = ChewieController(
+        videoPlayerController: _videoController!,
         autoPlay: true,
         looping: false,
-        fullScreenByDefault: false,
-        allowedScreenSleep: false,
-        fit: BoxFit.contain,
-        controlsConfiguration: BetterPlayerControlsConfiguration(
-          enableSkips: true,
-          skipForwardIcon: Icons.forward_10_rounded,
-          skipBackIcon: Icons.replay_10_rounded,
-          enableSubtitles: subtitles.isNotEmpty,
-          enableQualities: true,
-          enablePlaybackSpeed: true,
-          enableMute: true,
-          enableFullscreen: true,
-          playerTheme: BetterPlayerTheme.material,
-          controlBarColor: Colors.black.withOpacity(0.6),
-          textColor: Colors.white,
-          iconsColor: Colors.white,
-          progressBarPlayedColor: const Color(0xFF6C63FF),
-          progressBarHandleColor: const Color(0xFF6C63FF),
-          progressBarBufferedColor: Colors.white24,
-          progressBarBackgroundColor: Colors.white12,
-          loadingColor: const Color(0xFF6C63FF),
+        allowFullScreen: true,
+        allowMuting: true,
+        allowPlaybackSpeedChanging: true,
+        showControlsOnInitialize: true,
+        materialProgressColors: ChewieProgressColors(
+          playedColor: const Color(0xFF6C63FF),
+          handleColor: const Color(0xFF6C63FF),
+          bufferedColor: Colors.white24,
+          backgroundColor: Colors.white12,
         ),
-        deviceOrientationsAfterFullScreen: [
-          DeviceOrientation.portraitUp,
-        ],
-        deviceOrientationsOnFullScreen: [
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight,
-        ],
+        placeholder: Container(
+          color: Colors.black,
+          child: const Center(
+            child: CircularProgressIndicator(color: Color(0xFF6C63FF)),
+          ),
+        ),
         errorBuilder: (context, errorMessage) {
           return Center(
             child: Column(
@@ -148,7 +121,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  errorMessage ?? '',
+                  errorMessage,
                   style: TextStyle(color: Colors.grey[600], fontSize: 11),
                   textAlign: TextAlign.center,
                 ),
@@ -157,12 +130,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
           );
         },
       );
-
-      // Dispose old controller if exists
-      _playerController?.dispose();
-
-      _playerController = BetterPlayerController(config);
-      await _playerController!.setupDataSource(dataSource);
 
       setState(() => _isLoading = false);
     } catch (e) {
@@ -177,7 +144,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (episodeNumber == _currentEpisode) return;
     if (episodeNumber < 1 || episodeNumber > widget.totalEpisodes) return;
 
-    _playerController?.pause();
+    _videoController?.pause();
     setState(() {
       _currentEpisode = episodeNumber;
     });
@@ -294,8 +261,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       );
     }
 
-    if (_playerController != null) {
-      return BetterPlayer(controller: _playerController!);
+    if (_chewieController != null) {
+      return Chewie(controller: _chewieController!);
     }
 
     return Container(color: Colors.black);
