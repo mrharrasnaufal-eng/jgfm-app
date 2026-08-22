@@ -3,7 +3,17 @@
 
 ---
 
-## STATUS: PROJECT SIAP BUILD ✅ (Flutter SDK diperlukan)
+## STATUS: BUILD BERHASIL ✅ — APK TERSEDIA
+
+- **Artifact:** https://github.com/mrharrasnaufal-eng/jgfm-app/actions/runs/32603712311/artifacts/9483635275
+
+---
+
+## LINK & REPO:
+- **GitHub Repo:** https://github.com/mrharrasnaufal-eng/jgfm-app
+- **GitHub Actions:** https://github.com/mrharrasnaufal-eng/jgfm-app/actions
+- **Halaman Download:** https://jagatfilm.com/download/
+- **Direct APK:** https://jagatfilm.com/download/jagatfilm-v1.0.0.apk (belum diisi, nanti copy dari Actions artifacts)
 
 ---
 
@@ -31,8 +41,10 @@
 - Min SDK: 21 (Android 5.0+)
 - Target SDK: 34
 
-### 3. Dependencies ✅
-- `better_player: 0.0.84` — Video player HLS (ExoPlayer)
+### 3. Dependencies (FINAL) ✅
+- ~~`better_player: 0.0.84`~~ ❌ DIHAPUS - Tidak kompatibel AGP terbaru
+- `video_player: 2.9.2` — Video player (ExoPlayer di Android, support HLS)
+- `chewie: 1.8.5` — UI controls untuk video_player
 - `http: 1.2.1` — HTTP client
 - `cached_network_image: 3.3.1` — Image caching
 - `provider: 6.1.2` — State management
@@ -47,7 +59,7 @@
 | Home | `lib/screens/home_screen.dart` | Featured slider, grid drama, filter provider, infinite scroll |
 | Detail | `lib/screens/detail_screen.dart` | Info drama, genre tags, daftar episode |
 | Search | `lib/screens/search_screen.dart` | Pencarian dengan debounce 500ms |
-| Player | `lib/screens/player_screen.dart` | BetterPlayer HLS, HD/SD toggle, subtitle, navigasi episode |
+| Player | `lib/screens/player_screen.dart` | Chewie + video_player, HD/SD toggle, episode navigation |
 | Login | `lib/screens/login_screen.dart` | Login/Register form dengan validasi |
 | Profile | `lib/screens/profile_screen.dart` | Info user, VIP badge, logout |
 
@@ -66,86 +78,90 @@ lib/
     └── drama_card.dart    → Card widget reusable
 ```
 
-### 6. Konfigurasi Android ✅
-- `android/build.gradle` — Project level (Kotlin 1.9.22, AGP 8.1.4)
-- `android/app/build.gradle` — App level (minSdk 21, targetSdk 34, multidex, proguard)
-- `android/settings.gradle` — Plugin loader
-- `AndroidManifest.xml` — Internet permission, hardware acceleration, network security
-- `network_security_config.xml` — HTTPS for jagatfilm.com
-- `proguard-rules.pro` — Keep rules untuk Flutter + ExoPlayer
-- `MainActivity.kt` — FlutterActivity
-- `styles.xml` + `launch_background.xml` — Splash screen hitam
+### 6. GitHub Actions CI/CD ✅
+- File: `.github/workflows/build-apk.yml`
+- Trigger: push ke `main` atau manual (workflow_dispatch)
+- Steps:
+  1. Checkout source
+  2. Setup Flutter (stable channel)
+  3. **Regenerate Android project** (`flutter create --platforms=android --org com.jagatfilm .`)
+  4. Install dependencies (`flutter pub get`)
+  5. Analyze (`flutter analyze --no-fatal-infos --no-fatal-warnings`)
+  6. Build debug APK (`flutter build apk --debug`)
+  7. Upload artifact (`app-debug-apk`)
 
-### 7. Fitur Video Player ✅
-- HLS streaming via proxy `jagatfilm.com/api/hls`
-- Quality switcher HD/SD
-- Subtitle multi-bahasa (auto-select Indonesia)
-- Fullscreen landscape support
-- Episode navigation (prev/next + grid selector)
-- Error handling + retry
-- ExoPlayer backend (via better_player)
+### 7. Halaman Download Web ✅
+- Nginx dikonfigurasi serve `/download/` langsung (bukan proxy ke Next.js)
+- Halaman HTML di `/www/wwwroot/jagatfilm.com/download/index.html`
+- UI: Dark theme, info app, tombol download, fitur list
 
 ---
 
-## CARA BUILD APK:
-
-```bash
-# Di mesin yang punya Flutter SDK:
-cd /www/wwwroot/jagatfilm.com/apk
-
-# 1. Get dependencies
-flutter pub get
-
-# 2. Build release APK
-flutter build apk --release
-
-# Output: build/app/outputs/flutter-apk/app-release.apk
-
-# 3. Atau split per arsitektur (file lebih kecil):
-flutter build apk --split-per-abi --release
-```
+## HISTORY COMMIT:
+| # | Commit | Pesan | Isi |
+|---|--------|-------|-----|
+| 1 | 8c00266 | initial flutter app | 31 files, semua source code |
+| 2 | f606d7d | add github actions apk build | Workflow pertama |
+| 3 | 5e12819 | fix flutter analyze errors | CardTheme → CardThemeData, analyze flags |
+| 4 | 8d28bd6 | fix flutter gradle plugin configuration | Rewrite Gradle files format baru |
+| 5 | cd795a2 | regenerate android project in github actions | Tambah step rm android + flutter create |
+| 6 | 819966b | replace better_player with chewie video player | Ganti ke video_player + chewie |
 
 ---
 
-## LINK DOWNLOAD APK:
-- **Halaman Download:** https://jagatfilm.com/download/
-- **Direct APK:** https://jagatfilm.com/download/jagatfilm-v1.0.0.apk
-- **File lokasi server:** `/www/wwwroot/jagatfilm.com/download/jagatfilm-v1.0.0.apk`
-- **Nginx:** Sudah dikonfigurasi serve langsung (bukan proxy ke Next.js)
+## MASALAH YANG SUDAH DISELESAIKAN:
 
-### Cara Update APK:
-```bash
-# Setelah build APK, copy ke folder download:
-cp build/app/outputs/flutter-apk/app-release.apk /www/wwwroot/jagatfilm.com/download/jagatfilm-v1.0.0.apk
-```
+### Error 1: CardTheme type mismatch ✅
+- **Masalah:** `CardTheme` tidak bisa di-assign ke `CardThemeData?` (Flutter terbaru)
+- **Solusi:** Ganti `CardTheme(...)` → `CardThemeData(...)` di `lib/main.dart`
+
+### Error 2: Flutter Gradle Plugin lama ✅
+- **Masalah:** `android/app/build.gradle` pakai format imperative lama, Flutter terbaru butuh plugins block
+- **Solusi:** Regenerate folder android di CI dengan `flutter create --platforms=android --org com.jagatfilm .`
+
+### Error 3: better_player namespace error ✅
+- **Masalah:** `better_player 0.0.84` tidak set namespace, tidak kompatibel AGP terbaru
+- **Solusi:** Hapus better_player, ganti dengan `video_player` + `chewie`
+
+---
+
+## CARA DOWNLOAD APK (SETELAH BUILD BERHASIL):
+1. Buka: https://github.com/mrharrasnaufal-eng/jgfm-app/actions
+2. Klik run terbaru yang ✅ hijau
+3. Scroll ke bawah → **Artifacts**
+4. Download **app-debug-apk**
+5. (Opsional) Copy ke server: `cp app-debug.apk /www/wwwroot/jagatfilm.com/download/jagatfilm-v1.0.0.apk`
 
 ---
 
 ## ⚠️ CATATAN PENTING:
-1. **Flutter SDK TIDAK ada di server ini** — perlu build di mesin lokal atau CI/CD
-2. **Auth backend (port 3001)** mungkin tidak jalan — login akan gagal tapi app tetap bisa browse & streaming
-3. **Video streaming** bergantung pada proxy jagatfilm.com/api/hls — website harus tetap online
-4. **Image** di-proxy via jagatfilm.com/api/img — jangan hapus route ini di website
+1. **Flutter SDK TIDAK ada di server ini** — build dilakukan oleh GitHub Actions
+2. **Android folder di-regenerate saat build** — jangan edit android/ langsung, akan ditimpa
+3. **Auth backend (port 3001)** mungkin tidak jalan — login akan gagal tapi app tetap bisa browse & streaming
+4. **Video streaming** bergantung pada proxy jagatfilm.com/api/hls — website harus tetap online
+5. **Image** di-proxy via jagatfilm.com/api/img — jangan hapus route ini di website
+6. **HLS playback** — video_player di Android menggunakan ExoPlayer yang support HLS native
 
 ---
 
 ## QUICK START Session Berikutnya:
-1. Semua source code di: `/www/wwwroot/jagatfilm.com/apk/`
-2. Untuk edit UI/logic: edit file di `lib/screens/`
-3. Untuk tambah fitur: tambah screen baru di `lib/screens/`, import di `main.dart`
-4. Untuk build: `flutter build apk --release`
-5. Untuk debug: `flutter run` (perlu device/emulator terhubung)
+1. Source code: `/www/wwwroot/jagatfilm.com/apk/`
+2. Repo: https://github.com/mrharrasnaufal-eng/jgfm-app
+3. Untuk edit: ubah file di `lib/`, commit, push → Actions auto-build
+4. Untuk download APK: GitHub → Actions → Artifacts
+5. Untuk trigger build manual: GitHub → Actions → Run workflow
 
 ---
 
 ## YANG BISA DITINGKATKAN:
-1. **Offline mode** — Cache drama list ke SQLite lokal
-2. **Download episode** — Download video untuk ditonton offline
-3. **Push notification** — Drama baru / update episode
-4. **History** — Riwayat tontonan + progress per episode
-5. **Favorit/Bookmark** — Simpan drama favorit
-6. **Splash screen** — Custom splash dengan logo JagatFilm
-7. **App icon** — Custom launcher icon (perlu file PNG)
-8. **Signing key** — Buat keystore untuk release ke Play Store
+1. **Release APK** — Tambah signing key untuk production build
+2. **Offline mode** — Cache drama list ke SQLite lokal
+3. **Download episode** — Download video untuk ditonton offline
+4. **Push notification** — Drama baru / update episode
+5. **History** — Riwayat tontonan + progress per episode
+6. **Favorit/Bookmark** — Simpan drama favorit
+7. **Splash screen** — Custom splash dengan logo JagatFilm
+8. **App icon** — Custom launcher icon
 9. **Deep linking** — Buka drama dari URL jagatfilm.com/drama/[id]
 10. **Auto-update** — Check versi terbaru dari server
+11. **Subtitle overlay** — Tambah subtitle rendering di player

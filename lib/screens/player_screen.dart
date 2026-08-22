@@ -35,6 +35,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void initState() {
     super.initState();
     _currentEpisode = widget.episode.number;
+    // Force fullscreen landscape
+    _enterFullscreen();
     _loadStream();
   }
 
@@ -42,13 +44,24 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void dispose() {
     _chewieController?.dispose();
     _videoController?.dispose();
-    // Restore orientation
+    _exitFullscreen();
+    super.dispose();
+  }
+
+  void _enterFullscreen() {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  void _exitFullscreen() {
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
     ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    super.dispose();
   }
 
   Future<void> _loadStream() async {
@@ -87,15 +100,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
       await _videoController!.initialize();
 
-      // Create ChewieController
+      // Create ChewieController - fullscreen by default
       _chewieController = ChewieController(
         videoPlayerController: _videoController!,
         autoPlay: true,
         looping: false,
-        allowFullScreen: true,
+        allowFullScreen: false, // kita sudah fullscreen manual
         allowMuting: true,
         allowPlaybackSpeedChanging: true,
-        showControlsOnInitialize: true,
+        showControlsOnInitialize: false,
         materialProgressColors: ChewieProgressColors(
           playedColor: const Color(0xFF6C63FF),
           handleColor: const Color(0xFF6C63FF),
@@ -118,12 +131,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 Text(
                   'Gagal memutar video',
                   style: TextStyle(color: Colors.grey[400]),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  errorMessage,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 11),
-                  textAlign: TextAlign.center,
                 ),
               ],
             ),
@@ -151,6 +158,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _loadStream();
   }
 
+  void _nextEpisode() {
+    if (_currentEpisode < widget.totalEpisodes) {
+      _switchEpisode(_currentEpisode + 1);
+    }
+  }
+
+  void _prevEpisode() {
+    if (_currentEpisode > 1) {
+      _switchEpisode(_currentEpisode - 1);
+    }
+  }
+
   void _toggleQuality() {
     setState(() => _isHD = !_isHD);
     _loadStream();
@@ -160,57 +179,68 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: GestureDetector(
+        // Swipe down → next episode
+        onVerticalDragEnd: (details) {
+          if (details.primaryVelocity != null) {
+            if (details.primaryVelocity! > 300) {
+              // Swipe down → next episode
+              _nextEpisode();
+            } else if (details.primaryVelocity! < -300) {
+              // Swipe up → previous episode
+              _prevEpisode();
+            }
+          }
+        },
+        child: Stack(
           children: [
-            Text(
-              widget.drama.title,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            // Video player (fullscreen)
+            Positioned.fill(
+              child: _buildPlayer(),
             ),
-            Text(
-              'Episode $_currentEpisode',
-              style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+
+            // Top overlay - info & controls
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: _buildTopOverlay(),
             ),
+
+            // Bottom overlay - episode info
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: _buildBottomOverlay(),
+            ),
+
+            // Swipe hint (show briefly)
+            if (!_isLoading && _error == null)
+              Positioned(
+                right: 16,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.keyboard_arrow_down,
+                          color: Colors.white.withAlpha(80), size: 28),
+                      Text(
+                        'Geser\nbawah',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white.withAlpha(80),
+                          fontSize: 9,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
-        actions: [
-          // Quality toggle
-          TextButton(
-            onPressed: _toggleQuality,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: _isHD ? const Color(0xFF6C63FF) : Colors.grey[700],
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                _isHD ? 'HD' : 'SD',
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Video Player
-          AspectRatio(
-            aspectRatio: 16 / 9,
-            child: _buildPlayer(),
-          ),
-
-          // Episode navigation and info
-          Expanded(
-            child: _buildEpisodeControls(),
-          ),
-        ],
       ),
     );
   }
@@ -219,14 +249,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (_isLoading) {
       return Container(
         color: Colors.black,
-        child: const Center(
+        child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(color: Color(0xFF6C63FF)),
-              SizedBox(height: 12),
-              Text('Memuat video...',
-                  style: TextStyle(color: Colors.grey, fontSize: 13)),
+              const CircularProgressIndicator(color: Color(0xFF6C63FF)),
+              const SizedBox(height: 16),
+              Text(
+                'Memuat Episode $_currentEpisode...',
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
+              ),
             ],
           ),
         ),
@@ -238,7 +270,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         color: Colors.black,
         child: Center(
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -247,13 +279,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 Text(
                   _error!,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey[400], fontSize: 13),
+                  style: TextStyle(color: Colors.grey[400], fontSize: 14),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: _loadStream,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6C63FF),
+                  ),
                   child: const Text('Coba Lagi'),
                 ),
+                const SizedBox(height: 8),
+                if (_currentEpisode < widget.totalEpisodes)
+                  TextButton(
+                    onPressed: _nextEpisode,
+                    child: const Text('Coba Episode Berikutnya →'),
+                  ),
               ],
             ),
           ),
@@ -268,106 +309,122 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return Container(color: Colors.black);
   }
 
-  Widget _buildEpisodeControls() {
+  Widget _buildTopOverlay() {
     return Container(
-      color: const Color(0xFF0F0F1A),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Prev/Next controls
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                // Previous
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _currentEpisode > 1
-                        ? () => _switchEpisode(_currentEpisode - 1)
-                        : null,
-                    icon: const Icon(Icons.skip_previous_rounded, size: 20),
-                    label: const Text('Sebelumnya', style: TextStyle(fontSize: 12)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: BorderSide(color: Colors.grey[700]!),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.black.withAlpha(180),
+            Colors.transparent,
+          ],
+        ),
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            // Back button
+            IconButton(
+              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+            // Title & episode
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    widget.drama.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                // Next
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _currentEpisode < widget.totalEpisodes
-                        ? () => _switchEpisode(_currentEpisode + 1)
-                        : null,
-                    icon: const Icon(Icons.skip_next_rounded, size: 20),
-                    label: const Text('Selanjutnya', style: TextStyle(fontSize: 12)),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
+                  Text(
+                    'Episode $_currentEpisode / ${widget.totalEpisodes}',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
                   ),
-                ),
-              ],
-            ),
-          ),
-
-          // Episode list header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              'Episode (${widget.totalEpisodes})',
-              style: const TextStyle(
-                  fontSize: 15, fontWeight: FontWeight.bold),
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Episode grid
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 6,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childAspectRatio: 1.5,
+                ],
               ),
-              itemCount: widget.totalEpisodes,
-              itemBuilder: (context, index) {
-                final epNum = index + 1;
-                final isCurrent = epNum == _currentEpisode;
-                return GestureDetector(
-                  onTap: () => _switchEpisode(epNum),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isCurrent
-                          ? const Color(0xFF6C63FF)
-                          : const Color(0xFF1A1A2E),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isCurrent
-                            ? const Color(0xFF6C63FF)
-                            : Colors.grey[800]!,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        '$epNum',
-                        style: TextStyle(
-                          color: isCurrent ? Colors.white : Colors.grey[400],
-                          fontWeight:
-                              isCurrent ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
             ),
-          ),
-        ],
+            // Quality toggle
+            GestureDetector(
+              onTap: _toggleQuality,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _isHD ? const Color(0xFF6C63FF) : Colors.grey[700],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  _isHD ? 'HD' : 'SD',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomOverlay() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [
+            Colors.black.withAlpha(180),
+            Colors.transparent,
+          ],
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Prev button
+            TextButton.icon(
+              onPressed: _currentEpisode > 1 ? _prevEpisode : null,
+              icon: const Icon(Icons.skip_previous_rounded, size: 18),
+              label: const Text('Prev', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(foregroundColor: Colors.white70),
+            ),
+            // Episode indicator
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(30),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                'Ep $_currentEpisode',
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+              ),
+            ),
+            // Next button
+            TextButton.icon(
+              onPressed:
+                  _currentEpisode < widget.totalEpisodes ? _nextEpisode : null,
+              icon: const Icon(Icons.skip_next_rounded, size: 18),
+              label: const Text('Next', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(foregroundColor: Colors.white70),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -5,10 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 
 class AuthService extends ChangeNotifier {
+  // Base URL API - menggunakan jagatfilm.com
   static const String _baseUrl = 'https://jagatfilm.com';
-  // Auth backend on port 3001 (may not be running)
-  // Fallback: store locally
-  static const String _authUrl = '$_baseUrl:3001';
 
   User? _user;
   String? _token;
@@ -16,7 +14,7 @@ class AuthService extends ChangeNotifier {
 
   User? get user => _user;
   String? get token => _token;
-  bool get isLoggedIn => _user != null && _token != null;
+  bool get isLoggedIn => _user != null;
   bool get isLoading => _isLoading;
   bool get isVip => _user?.isVip ?? false;
 
@@ -31,9 +29,6 @@ class AuthService extends ChangeNotifier {
         _user = User.fromJson(jsonDecode(userJson));
         _token = savedToken;
         notifyListeners();
-
-        // Verify token is still valid
-        await _refreshProfile();
       } catch (_) {
         await logout();
       }
@@ -45,12 +40,13 @@ class AuthService extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
+    // Coba koneksi ke backend auth jika tersedia
     try {
       final response = await http.post(
-        Uri.parse('$_authUrl/api/auth/login'),
+        Uri.parse('$_baseUrl/api/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'password': password}),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
@@ -65,17 +61,50 @@ class AuthService extends ChangeNotifier {
         _isLoading = false;
         notifyListeners();
         return json['error'] ?? 'Login gagal';
-      } else {
-        final json = jsonDecode(response.body);
+      } else if (response.statusCode == 401) {
         _isLoading = false;
         notifyListeners();
-        return json['error'] ?? 'Login gagal (${response.statusCode})';
+        final json = jsonDecode(response.body);
+        return json['error'] ?? 'Email atau password salah';
       }
-    } catch (e) {
+    } catch (_) {
+      // Backend tidak tersedia - gunakan local auth
+    }
+
+    // Fallback: Local auth (offline mode)
+    final prefs = await SharedPreferences.getInstance();
+    final accounts = _getLocalAccounts(prefs);
+    
+    final account = accounts.firstWhere(
+      (a) => a['email'] == email,
+      orElse: () => {},
+    );
+
+    if (account.isEmpty) {
       _isLoading = false;
       notifyListeners();
-      return 'Server tidak dapat dihubungi. Coba lagi nanti.';
+      return 'Email tidak terdaftar. Silakan daftar terlebih dahulu.';
     }
+
+    if (account['password'] != _hashPassword(password)) {
+      _isLoading = false;
+      notifyListeners();
+      return 'Password salah';
+    }
+
+    // Login sukses (local)
+    _token = 'local_${DateTime.now().millisecondsSinceEpoch}';
+    _user = User(
+      uid: account['uid'] ?? '',
+      email: email,
+      displayName: account['displayName'] ?? email.split('@')[0],
+      isVip: false,
+      currentPlanName: 'Free Plan',
+    );
+    await _saveUser();
+    _isLoading = false;
+    notifyListeners();
+    return null; // success
   }
 
   /// Register new account
@@ -83,16 +112,17 @@ class AuthService extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
+    // Coba koneksi ke backend auth jika tersedia
     try {
       final response = await http.post(
-        Uri.parse('$_authUrl/api/auth/register'),
+        Uri.parse('$_baseUrl/api/auth/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': email,
           'password': password,
           'displayName': displayName,
         }),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
@@ -107,17 +137,50 @@ class AuthService extends ChangeNotifier {
         _isLoading = false;
         notifyListeners();
         return json['error'] ?? 'Registrasi gagal';
-      } else {
-        final json = jsonDecode(response.body);
+      } else if (response.statusCode == 409) {
         _isLoading = false;
         notifyListeners();
-        return json['error'] ?? 'Registrasi gagal (${response.statusCode})';
+        return 'Email sudah terdaftar';
       }
-    } catch (e) {
+    } catch (_) {
+      // Backend tidak tersedia - gunakan local auth
+    }
+
+    // Fallback: Local auth (offline mode)
+    final prefs = await SharedPreferences.getInstance();
+    final accounts = _getLocalAccounts(prefs);
+
+    // Cek duplicate
+    final existing = accounts.any((a) => a['email'] == email);
+    if (existing) {
       _isLoading = false;
       notifyListeners();
-      return 'Server tidak dapat dihubungi. Coba lagi nanti.';
+      return 'Email sudah terdaftar';
     }
+
+    // Simpan akun baru
+    final uid = 'local_${DateTime.now().millisecondsSinceEpoch}';
+    accounts.add({
+      'uid': uid,
+      'email': email,
+      'password': _hashPassword(password),
+      'displayName': displayName,
+    });
+    await prefs.setString('local_accounts', jsonEncode(accounts));
+
+    // Auto login setelah register
+    _token = 'local_$uid';
+    _user = User(
+      uid: uid,
+      email: email,
+      displayName: displayName,
+      isVip: false,
+      currentPlanName: 'Free Plan',
+    );
+    await _saveUser();
+    _isLoading = false;
+    notifyListeners();
+    return null; // success
   }
 
   /// Logout
@@ -130,32 +193,26 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Refresh profile from server
-  Future<void> _refreshProfile() async {
-    if (_token == null) return;
-    try {
-      final response = await http.get(
-        Uri.parse('$_authUrl/api/auth/me'),
-        headers: {
-          'Authorization': 'Bearer $_token',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        if (json['success'] == true && json['user'] != null) {
-          _user = User.fromJson(json['user']);
-          await _saveUser();
-          notifyListeners();
-        }
-      } else if (response.statusCode == 401) {
-        // Token expired
-        await logout();
-      }
-    } catch (_) {
-      // Server unreachable — keep local data
+  /// Get local accounts from SharedPreferences
+  List<Map<String, dynamic>> _getLocalAccounts(SharedPreferences prefs) {
+    final raw = prefs.getString('local_accounts');
+    if (raw != null) {
+      try {
+        final list = jsonDecode(raw) as List;
+        return list.map((e) => Map<String, dynamic>.from(e)).toList();
+      } catch (_) {}
     }
+    return [];
+  }
+
+  /// Simple password hash (not cryptographically secure, but works for local storage)
+  String _hashPassword(String password) {
+    int hash = 0;
+    for (int i = 0; i < password.length; i++) {
+      hash = ((hash << 5) - hash) + password.codeUnitAt(i);
+      hash = hash & 0xFFFFFFFF;
+    }
+    return 'h${hash.toRadixString(16)}';
   }
 
   Future<void> _saveUser() async {
