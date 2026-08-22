@@ -33,11 +33,53 @@ jobs:
 
       - name: Restore Android config
         run: |
-          # Ensure internet permission is set
+          # Ensure internet permission
           sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml || true
           # Ensure minSdk 21
           sed -i 's/minSdk = .*/minSdk = 21/' android/app/build.gradle.kts 2>/dev/null || \
           sed -i 's/minSdk.*/minSdk = 21/' android/app/build.gradle 2>/dev/null || true
+
+      - name: Setup signing key
+        id: signing
+        run: |
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "SIGNING_AVAILABLE=true" >> $GITHUB_OUTPUT
+            echo "✅ Signing key found - will build RELEASE APK"
+            
+            # Decode keystore
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
+            
+            # Create key.properties
+            cat > android/key.properties << EOF
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=upload-keystore.jks
+          EOF
+            
+            # Inject signingConfigs into build.gradle
+            # Works with both .gradle and .gradle.kts
+            if [ -f android/app/build.gradle.kts ]; then
+              # Kotlin DSL
+              sed -i '/android {/a \
+          \    val keystoreProperties = java.util.Properties()\n    val keystoreFile = rootProject.file("app/key.properties")\n    if (keystoreFile.exists()) { keystoreProperties.load(java.io.FileInputStream(keystoreFile)) }\n\n    signingConfigs {\n        create("release") {\n            keyAlias = keystoreProperties["keyAlias"] as String? ?: ""\n            keyPassword = keystoreProperties["keyPassword"] as String? ?: ""\n            storeFile = file(keystoreProperties["storeFile"] as String? ?: "upload-keystore.jks")\n            storePassword = keystoreProperties["storePassword"] as String? ?: ""\n        }\n    }' android/app/build.gradle.kts
+              # Change release buildType signing
+              sed -i 's/signingConfig = signingConfigs.getByName("debug")/signingConfig = signingConfigs.getByName("release")/' android/app/build.gradle.kts
+            else
+              # Groovy DSL
+              sed -i '/android {/a \
+          \    def keystoreProperties = new Properties()\n    def keystoreFile = rootProject.file("app/key.properties")\n    if (keystoreFile.exists()) { keystoreProperties.load(new FileInputStream(keystoreFile)) }\n\n    signingConfigs {\n        release {\n            keyAlias keystoreProperties["keyAlias"]\n            keyPassword keystoreProperties["keyPassword"]\n            storeFile file(keystoreProperties["storeFile"])\n            storePassword keystoreProperties["storePassword"]\n        }\n    }' android/app/build.gradle
+              sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/' android/app/build.gradle
+            fi
+          else
+            echo "SIGNING_AVAILABLE=false" >> $GITHUB_OUTPUT
+            echo "⚠️ WARNING: Signing key NOT found - will build DEBUG APK"
+            echo "⚠️ To enable signed release, add these GitHub Secrets:"
+            echo "   - ANDROID_KEYSTORE_BASE64"
+            echo "   - ANDROID_KEYSTORE_PASSWORD"
+            echo "   - ANDROID_KEY_ALIAS"
+            echo "   - ANDROID_KEY_PASSWORD"
+          fi
 
       - name: Install dependencies
         run: flutter pub get
@@ -45,15 +87,28 @@ jobs:
       - name: Analyze project
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
-      - name: Build debug APK
-        run: flutter build apk --debug
+      - name: Build Release APK
+        if: steps.signing.outputs.SIGNING_AVAILABLE == 'true'
+        run: flutter build apk --release
+
+      - name: Build Debug APK (fallback)
+        if: steps.signing.outputs.SIGNING_AVAILABLE != 'true'
+        run: |
+          echo "⚠️ Building DEBUG APK because signing key is not configured"
+          flutter build apk --debug
 
       - name: Prepare deploy folder
         run: |
           mkdir -p deploy
 
-          # Copy APK
-          cp build/app/outputs/flutter-apk/app-debug.apk deploy/app-release.apk
+          # Copy APK (release or debug)
+          if [ "${{ steps.signing.outputs.SIGNING_AVAILABLE }}" == "true" ]; then
+            cp build/app/outputs/flutter-apk/app-release.apk deploy/app-release.apk
+            echo "📦 Release APK (signed)"
+          else
+            cp build/app/outputs/flutter-apk/app-debug.apk deploy/app-release.apk
+            echo "⚠️ Debug APK (unsigned) - update will require uninstall if switching from signed"
+          fi
 
           # Extract version from pubspec.yaml
           VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //')
@@ -71,13 +126,14 @@ jobs:
           }
           EOF
 
-          echo "Version: $VERSION_NAME ($VERSION_CODE)"
+          echo "✅ Version: $VERSION_NAME (code: $VERSION_CODE)"
           cat deploy/version.json
+          ls -la deploy/
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk
+          name: app-release-apk
           path: deploy/app-release.apk
 
       - name: Upload version.json artifact
@@ -98,6 +154,7 @@ jobs:
           target: ${{ secrets.AAPANEL_DEPLOY_PATH }}
           strip_components: 1
           overwrite: true
+        continue-on-error: true
 
       - name: Move files to correct paths on server
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -115,6 +172,7 @@ jobs:
             mv "$DEPLOY_PATH/version.json" "$DEPLOY_PATH/app/version.json" 2>/dev/null || true
             chmod 644 "$DEPLOY_PATH/download/app-release.apk"
             chmod 644 "$DEPLOY_PATH/app/version.json"
-            echo "Deploy complete!"
+            echo "✅ Deploy complete!"
             ls -la "$DEPLOY_PATH/download/app-release.apk"
             ls -la "$DEPLOY_PATH/app/version.json"
+        continue-on-error: true
