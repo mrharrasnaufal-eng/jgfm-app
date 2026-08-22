@@ -19,6 +19,11 @@ jobs:
         with:
           channel: stable
 
+      - name: Regenerate Android project
+        run: |
+          rm -rf android
+          flutter create --platforms=android --org com.jagatfilm .
+
       - name: Install dependencies
         run: flutter pub get
 
