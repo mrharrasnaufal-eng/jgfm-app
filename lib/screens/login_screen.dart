@@ -48,7 +48,19 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (error == null) {
-      // Success
+      if (mounted) Navigator.pop(context);
+    } else {
+      setState(() => _errorMessage = error);
+    }
+  }
+
+  Future<void> _loginWithGoogle() async {
+    setState(() => _errorMessage = null);
+
+    final auth = Provider.of<AuthService>(context, listen: false);
+    final error = await auth.loginWithGoogle();
+
+    if (error == null) {
       if (mounted) Navigator.pop(context);
     } else {
       setState(() => _errorMessage = error);
@@ -70,14 +82,14 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 32),
-              // Logo/Icon
+              const SizedBox(height: 24),
+              // Logo
               Icon(
                 Icons.movie_filter_rounded,
                 size: 64,
                 color: Theme.of(context).colorScheme.primary,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               Text(
                 'JagatFilm',
                 textAlign: TextAlign.center,
@@ -89,13 +101,61 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                _isLogin
-                    ? 'Masuk ke akun Anda'
-                    : 'Buat akun baru',
+                _isLogin ? 'Masuk ke akun Anda' : 'Buat akun baru',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[400], fontSize: 14),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 32),
+
+              // ========== GOOGLE SIGN IN ==========
+              OutlinedButton.icon(
+                onPressed: auth.isLoading ? null : _loginWithGoogle,
+                icon: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Text('G',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      )),
+                ),
+                label: Text(
+                  _isLogin ? 'Masuk dengan Google' : 'Daftar dengan Google',
+                  style: const TextStyle(fontSize: 15),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  side: BorderSide(color: Colors.grey[600]!),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Divider
+              Row(
+                children: [
+                  Expanded(child: Divider(color: Colors.grey[700])),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('atau',
+                        style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+                  ),
+                  Expanded(child: Divider(color: Colors.grey[700])),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // ========== EMAIL/PASSWORD FORM ==========
 
               // Error message
               if (_errorMessage != null)
@@ -103,9 +163,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   padding: const EdgeInsets.all(12),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
+                    color: Colors.red.withAlpha(25),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    border: Border.all(color: Colors.red.withAlpha(80)),
                   ),
                   child: Row(
                     children: [
@@ -115,8 +175,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: const TextStyle(
-                              color: Colors.red, fontSize: 13),
+                          style:
+                              const TextStyle(color: Colors.red, fontSize: 13),
                         ),
                       ),
                     ],

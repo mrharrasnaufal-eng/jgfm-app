@@ -2,11 +2,15 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user.dart';
 
 class AuthService extends ChangeNotifier {
-  // Base URL API - menggunakan jagatfilm.com
   static const String _baseUrl = 'https://jagatfilm.com';
+
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: ['email', 'profile'],
+  );
 
   User? _user;
   String? _token;
@@ -35,6 +39,56 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  /// Login with Google
+  Future<String?> loginWithGoogle() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        _isLoading = false;
+        notifyListeners();
+        return 'Login dibatalkan';
+      }
+
+      // Login berhasil dengan Google
+      _token = 'google_${googleUser.id}';
+      _user = User(
+        uid: googleUser.id,
+        email: googleUser.email,
+        displayName: googleUser.displayName ?? googleUser.email.split('@')[0],
+        photoURL: googleUser.photoUrl,
+        isVip: false,
+        currentPlanName: 'Free Plan',
+      );
+      await _saveUser();
+
+      // Simpan juga ke local accounts agar konsisten
+      final prefs = await SharedPreferences.getInstance();
+      final accounts = _getLocalAccounts(prefs);
+      final existing = accounts.any((a) => a['email'] == googleUser.email);
+      if (!existing) {
+        accounts.add({
+          'uid': googleUser.id,
+          'email': googleUser.email,
+          'displayName': googleUser.displayName ?? googleUser.email.split('@')[0],
+          'photoURL': googleUser.photoUrl ?? '',
+          'provider': 'google',
+        });
+        await prefs.setString('local_accounts', jsonEncode(accounts));
+      }
+
+      _isLoading = false;
+      notifyListeners();
+      return null; // success
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return 'Gagal login dengan Google: ${e.toString()}';
+    }
+  }
+
   /// Login with email and password
   Future<String?> login(String email, String password) async {
     _isLoading = true;
@@ -56,7 +110,7 @@ class AuthService extends ChangeNotifier {
           await _saveUser();
           _isLoading = false;
           notifyListeners();
-          return null; // success
+          return null;
         }
         _isLoading = false;
         notifyListeners();
@@ -71,12 +125,12 @@ class AuthService extends ChangeNotifier {
       // Backend tidak tersedia - gunakan local auth
     }
 
-    // Fallback: Local auth (offline mode)
+    // Fallback: Local auth
     final prefs = await SharedPreferences.getInstance();
     final accounts = _getLocalAccounts(prefs);
-    
+
     final account = accounts.firstWhere(
-      (a) => a['email'] == email,
+      (a) => a['email'] == email && a['provider'] != 'google',
       orElse: () => {},
     );
 
@@ -104,7 +158,7 @@ class AuthService extends ChangeNotifier {
     await _saveUser();
     _isLoading = false;
     notifyListeners();
-    return null; // success
+    return null;
   }
 
   /// Register new account
@@ -132,7 +186,7 @@ class AuthService extends ChangeNotifier {
           await _saveUser();
           _isLoading = false;
           notifyListeners();
-          return null; // success
+          return null;
         }
         _isLoading = false;
         notifyListeners();
@@ -146,12 +200,13 @@ class AuthService extends ChangeNotifier {
       // Backend tidak tersedia - gunakan local auth
     }
 
-    // Fallback: Local auth (offline mode)
+    // Fallback: Local auth
     final prefs = await SharedPreferences.getInstance();
     final accounts = _getLocalAccounts(prefs);
 
     // Cek duplicate
-    final existing = accounts.any((a) => a['email'] == email);
+    final existing = accounts.any(
+        (a) => a['email'] == email && a['provider'] != 'google');
     if (existing) {
       _isLoading = false;
       notifyListeners();
@@ -165,6 +220,7 @@ class AuthService extends ChangeNotifier {
       'email': email,
       'password': _hashPassword(password),
       'displayName': displayName,
+      'provider': 'email',
     });
     await prefs.setString('local_accounts', jsonEncode(accounts));
 
@@ -180,11 +236,16 @@ class AuthService extends ChangeNotifier {
     await _saveUser();
     _isLoading = false;
     notifyListeners();
-    return null; // success
+    return null;
   }
 
   /// Logout
   Future<void> logout() async {
+    // Sign out Google juga
+    try {
+      await _googleSignIn.signOut();
+    } catch (_) {}
+
     _user = null;
     _token = null;
     final prefs = await SharedPreferences.getInstance();
@@ -205,7 +266,7 @@ class AuthService extends ChangeNotifier {
     return [];
   }
 
-  /// Simple password hash (not cryptographically secure, but works for local storage)
+  /// Simple password hash
   String _hashPassword(String password) {
     int hash = 0;
     for (int i = 0; i < password.length; i++) {
