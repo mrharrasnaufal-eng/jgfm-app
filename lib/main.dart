@@ -46,7 +46,7 @@ class JagatFilmApp extends StatelessWidget {
             elevation: 0,
             centerTitle: true,
           ),
-          cardTheme: CardTheme(
+          cardTheme: CardThemeData(
             color: const Color(0xFF1A1A2E),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
