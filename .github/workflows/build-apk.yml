@@ -14,15 +14,30 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
 
       - name: Regenerate Android project
         run: |
           rm -rf android
           flutter create --platforms=android --org com.jagatfilm .
+
+      - name: Restore Android config
+        run: |
+          # Ensure internet permission is set
+          sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml || true
+          # Ensure minSdk 21
+          sed -i 's/minSdk = .*/minSdk = 21/' android/app/build.gradle.kts 2>/dev/null || \
+          sed -i 's/minSdk.*/minSdk = 21/' android/app/build.gradle 2>/dev/null || true
 
       - name: Install dependencies
         run: flutter pub get
@@ -33,8 +48,73 @@ jobs:
       - name: Build debug APK
         run: flutter build apk --debug
 
+      - name: Prepare deploy folder
+        run: |
+          mkdir -p deploy
+
+          # Copy APK
+          cp build/app/outputs/flutter-apk/app-debug.apk deploy/app-release.apk
+
+          # Extract version from pubspec.yaml
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //')
+          VERSION_NAME=$(echo "$VERSION" | cut -d'+' -f1)
+          VERSION_CODE=$(echo "$VERSION" | cut -d'+' -f2)
+
+          # Create version.json
+          cat > deploy/version.json << EOF
+          {
+            "version": "$VERSION_NAME",
+            "versionCode": $VERSION_CODE,
+            "apk_url": "https://jagatfilm.com/download/app-release.apk",
+            "changelog": "Update aplikasi terbaru.",
+            "force_update": false
+          }
+          EOF
+
+          echo "Version: $VERSION_NAME ($VERSION_CODE)"
+          cat deploy/version.json
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          path: deploy/app-release.apk
+
+      - name: Upload version.json artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: version-json
+          path: deploy/version.json
+
+      - name: Deploy to aaPanel via SSH
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.AAPANEL_HOST }}
+          port: ${{ secrets.AAPANEL_PORT }}
+          username: ${{ secrets.AAPANEL_USER }}
+          key: ${{ secrets.AAPANEL_SSH_KEY }}
+          source: "deploy/app-release.apk,deploy/version.json"
+          target: ${{ secrets.AAPANEL_DEPLOY_PATH }}
+          strip_components: 1
+          overwrite: true
+
+      - name: Move files to correct paths on server
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AAPANEL_HOST }}
+          port: ${{ secrets.AAPANEL_PORT }}
+          username: ${{ secrets.AAPANEL_USER }}
+          key: ${{ secrets.AAPANEL_SSH_KEY }}
+          script: |
+            DEPLOY_PATH="${{ secrets.AAPANEL_DEPLOY_PATH }}"
+            mkdir -p "$DEPLOY_PATH/download"
+            mkdir -p "$DEPLOY_PATH/app"
+            mv "$DEPLOY_PATH/app-release.apk" "$DEPLOY_PATH/download/app-release.apk" 2>/dev/null || true
+            mv "$DEPLOY_PATH/version.json" "$DEPLOY_PATH/app/version.json" 2>/dev/null || true
+            chmod 644 "$DEPLOY_PATH/download/app-release.apk"
+            chmod 644 "$DEPLOY_PATH/app/version.json"
+            echo "Deploy complete!"
+            ls -la "$DEPLOY_PATH/download/app-release.apk"
+            ls -la "$DEPLOY_PATH/app/version.json"

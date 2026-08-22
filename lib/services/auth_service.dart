@@ -85,7 +85,17 @@ class AuthService extends ChangeNotifier {
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-      return 'Gagal login dengan Google: ${e.toString()}';
+      // ApiException 10 = SHA-1 not registered in Google Cloud Console
+      final errorStr = e.toString();
+      if (errorStr.contains('ApiException: 10') ||
+          errorStr.contains('sign_in_failed')) {
+        return 'Login Google belum dikonfigurasi. Silakan gunakan email/password.';
+      }
+      if (errorStr.contains('network_error') ||
+          errorStr.contains('NetworkError')) {
+        return 'Tidak ada koneksi internet.';
+      }
+      return 'Gagal login dengan Google. Silakan gunakan email/password.';
     }
   }
 

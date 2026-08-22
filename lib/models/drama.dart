@@ -1,3 +1,11 @@
+/// Safe integer parser - handles both int and String from API
+int _parseInt(dynamic value) {
+  if (value is int) return value;
+  if (value is String) return int.tryParse(value) ?? 0;
+  if (value is double) return value.toInt();
+  return 0;
+}
+
 class Drama {
   final String id;
   final String title;
@@ -27,17 +35,17 @@ class Drama {
 
   factory Drama.fromJson(Map<String, dynamic> json) {
     return Drama(
-      id: json['id'] ?? '',
-      title: json['title'] ?? '',
-      cover: json['cover'] ?? '',
-      coverHorizontal: json['coverHorizontal'],
-      description: json['description'] ?? '',
-      genre: json['genre'] ?? '',
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      cover: json['cover']?.toString() ?? '',
+      coverHorizontal: json['coverHorizontal']?.toString(),
+      description: json['description']?.toString() ?? '',
+      genre: json['genre']?.toString() ?? '',
       genres: (json['genres'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       tags: (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
-      totalEpisodes: json['totalEpisodes'] ?? 0,
-      source: json['source'] ?? '',
-      sourceId: json['sourceId'] ?? '',
+      totalEpisodes: _parseInt(json['totalEpisodes']),
+      source: json['source']?.toString() ?? '',
+      sourceId: json['sourceId']?.toString() ?? '',
     );
   }
 
@@ -73,19 +81,19 @@ class DramaDetail extends Drama {
 
   factory DramaDetail.fromJson(Map<String, dynamic> json) {
     return DramaDetail(
-      id: json['id'] ?? '',
-      title: json['title'] ?? '',
-      cover: json['cover'] ?? '',
-      coverHorizontal: json['coverHorizontal'],
-      description: json['description'] ?? '',
-      genre: json['genre'] ?? '',
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      cover: json['cover']?.toString() ?? '',
+      coverHorizontal: json['coverHorizontal']?.toString(),
+      description: json['description']?.toString() ?? '',
+      genre: json['genre']?.toString() ?? '',
       genres: (json['genres'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       tags: (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
-      totalEpisodes: json['totalEpisodes'] ?? 0,
-      source: json['source'] ?? '',
-      sourceId: json['sourceId'] ?? '',
+      totalEpisodes: _parseInt(json['totalEpisodes']),
+      source: json['source']?.toString() ?? '',
+      sourceId: json['sourceId']?.toString() ?? '',
       episodes: (json['episodes'] as List<dynamic>?)
-              ?.map((e) => EpisodeInfo.fromJson(e))
+              ?.map((e) => EpisodeInfo.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
     );
@@ -110,10 +118,10 @@ class EpisodeInfo {
   factory EpisodeInfo.fromJson(Map<String, dynamic> json) {
     return EpisodeInfo(
       id: json['id']?.toString() ?? '',
-      number: json['number'] ?? 0,
-      title: json['title'] ?? 'Episode ${json['number'] ?? 0}',
-      duration: json['duration'],
-      isFree: json['isFree'] ?? true,
+      number: _parseInt(json['number']),
+      title: json['title']?.toString() ?? 'Episode ${_parseInt(json['number'])}',
+      duration: json['duration'] != null ? _parseInt(json['duration']) : null,
+      isFree: json['isFree'] == true || json['isFree'] == 1,
     );
   }
 }
@@ -131,10 +139,10 @@ class StreamData {
 
   factory StreamData.fromJson(Map<String, dynamic> json) {
     return StreamData(
-      sdUrl: json['sdUrl'] ?? '',
-      hdUrl: json['hdUrl'] ?? '',
+      sdUrl: json['sdUrl']?.toString() ?? '',
+      hdUrl: json['hdUrl']?.toString() ?? '',
       subtitles: (json['subtitles'] as List<dynamic>?)
-              ?.map((e) => Subtitle.fromJson(e))
+              ?.map((e) => Subtitle.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
     );
@@ -168,9 +176,9 @@ class Subtitle {
 
   factory Subtitle.fromJson(Map<String, dynamic> json) {
     return Subtitle(
-      lang: json['lang'] ?? '',
-      url: json['url'] ?? '',
-      label: json['label'] ?? '',
+      lang: json['lang']?.toString() ?? '',
+      url: json['url']?.toString() ?? '',
+      label: json['label']?.toString() ?? '',
     );
   }
 
