@@ -1,6 +1,6 @@
 # JagatFilm APK - Blueprint Update v1.0.3+4
 ### Tanggal diskusi: 23 Agustus 2026
-### Status: PLANNING (belum ngoding)
+### Status: COMPLETED ✅ — Pushed commit 97171c3 (23 Aug 2026)
 
 ---
 
@@ -91,24 +91,30 @@
   - Dashboard sederhana untuk lihat data
 - Data yang di-track: device model, OS version, app version, screen views, play events
 
-### H. Admin Panel (Remote Config untuk APK)
-- Owner ingin panel admin web yang bisa kontrol APK remotely:
-  - Ganti logo app (splash screen)
-  - Set popup/banner (promo, maintenance notice, dll)
-  - Ganti gambar splash screen
-  - Toggle fitur on/off
-  - Push notification text
-- Implementasi:
-  - Server: /app/config.json — APK fetch saat startup
-  - Config fields: logo_url, splash_url, popup_image, popup_text, popup_enabled, maintenance_mode, dll
-  - APK: fetch config.json on launch → apply dynamically
-  - Admin Panel: simple web dashboard untuk edit config
-- Tech: Next.js admin panel (URL/subdomain TBD — tanya owner dulu sebelum build)
-- ⚠️ JANGAN langsung pilih subdomain. Tanya owner dulu:
-  - Subdomain apa? (admin.jagatfilm.com / panel.jagatfilm.com / lainnya)
-  - Atau path? (jagatfilm.com/admin)
-  - Owner harus setup DNS dulu sebelum deploy
-- Keputusan: Custom web panel (bukan Firebase Remote Config)
+### H. Admin Panel (Remote Config untuk APK) — ✅ DEPLOYED
+- URL: https://masterpanel.jagatfilm.com
+- Login: Google OAuth (mr.harrasnaufal@gmail.com) atau manual (masteradminjagatfilm)
+- Tech: Next.js 14, port 3004, PM2 "masterpanel"
+- Config API: https://masterpanel.jagatfilm.com/api/config (public, APK fetch)
+- Fitur dashboard:
+  - 🎨 Branding: logo_url, splash_image_url
+  - 📢 Popup: enabled, title, message, image, action (page:home/search/profile/update/login atau external URL), duration (detik)
+  - 🔧 Maintenance: mode on/off, custom message
+  - 📋 Announcement: teks banner
+  - 📱 Update Control: force_update, min_version
+
+#### ATURAN POPUP DI APK:
+- Popup muncul **SEKALI saat buka app** (per sesi)
+- Otomatis **hilang setelah X detik** (dari popup_duration di config)
+- Kalau user tutup app dan buka lagi → popup tampil lagi sekali
+- TIDAK muncul berkali-kali selama 1 sesi
+- Action: navigasi ke halaman dalam app (page:xxx) BUKAN buka URL external
+- Kalau action = "external" → baru buka browser
+- Integrasi APK: ✅ diimplementasikan lokal untuk v1.0.4+5; pending commit, CI build, deploy, dan tes perangkat.
+- Endpoint utama: `https://masterpanel.jagatfilm.com/api/config`.
+- Endpoint fallback: `https://www.jagatfilm.com/app/config.json`.
+- Jika kedua endpoint gagal/JSON rusak: APK memakai default aman (maintenance, popup, dan force update mati).
+- Keputusan: Custom web panel (bukan Firebase Remote Config).
 
 ### I. Google Sign-In (Tanpa Firebase)
 - JANGAN pakai Firebase Auth atau google_sign_in package (history crash)
@@ -142,7 +148,7 @@
 
 ## BACKLOG (v1.1.0+):
 - [ ] Analytics integration (custom endpoint, bukan Firebase)
-- [ ] Admin panel + remote config (URL TBD, tanya owner)
+- [~] Admin panel deployed + integrasi Remote Config APK v1.0.4+5 sudah lokal; pending CI/deploy
 - [ ] Google Sign-In via OAuth 2.0 Web Flow (tanpa Firebase, tanpa google_sign_in package)
 - [ ] PWA & Offline Support
 - [ ] Watch History & Favorit (localStorage)
@@ -170,3 +176,42 @@
 - JANGAN langsung pilih subdomain/URL tanpa konfirmasi owner
 - Semua kode yang disentuh HARUS aman — crash = gagal
 - Jika ragu apakah suatu dependency aman → JANGAN pakai, cari alternatif
+
+---
+
+## UPDATE v1.0.4+5 — MASTERPANEL REMOTE CONFIG
+### Status: IMPLEMENTED LOCALLY ✅ — BELUM COMMIT/DEPLOY
+### Tanggal: 23 Agustus 2026
+
+### Implementasi APK
+- `AppRemoteConfig`: parsing dan sanitasi URL HTTP(S), bool, text, action, durasi 2–30 detik, serta minimum version.
+- `RemoteConfigService`: primary MasterPanel → fallback `www.jagatfilm.com/app/config.json` → default aman.
+- Startup menampilkan splash remote secara aman; image error kembali ke branding bawaan.
+- Maintenance gate memblokir shell aplikasi dan menyediakan tombol retry config.
+- Logo dan announcement dari panel tampil di Home.
+- Popup tampil maksimal sekali per proses/sesi, auto-close, dan mendukung `page:home/search/profile/update/login` atau external HTTP(S).
+- `force_update` + `min_version` memakai perbandingan versi numerik; dialog force non-dismissible dan URL APK memiliki fallback.
+- Auto update lama tetap aktif tetapi diurutkan setelah minimum-version dan popup agar dialog tidak bertumpuk.
+- Versi lokal dinaikkan dari `1.0.3+4` ke `1.0.4+5`.
+
+### File Baru
+- `lib/models/app_remote_config.dart`
+- `lib/services/remote_config_service.dart`
+- `lib/screens/maintenance_screen.dart`
+- `lib/widgets/remote_config_popup.dart`
+- `test/remote_config_test.dart`
+
+### Validasi
+- Kedua endpoint config: HTTP 200, seluruh 14 key tersedia.
+- `git diff --check`: lulus.
+- Relative Dart imports: seluruhnya resolve.
+- Delimiter/trailing-whitespace check: lulus pada semua file yang disentuh.
+- Audit independen: `NO_BLOCKING_ISSUES`.
+- Test ditambahkan untuk parsing/sanitasi, fallback endpoint, default aman, dan semantic version comparison.
+- ⚠️ Flutter/Dart SDK dan Docker/Podman tidak tersedia di VPS; `dart format`, `flutter analyze`, `flutter test`, dan build harus dijalankan GitHub Actions setelah commit/push.
+
+### Langkah Rilis Berikutnya
+1. Review diff final.
+2. Commit source secara eksplisit setelah persetujuan owner.
+3. Push `main` agar GitHub Actions menjalankan analyze + signed release build + deploy.
+4. Verifikasi APK `1.0.4+5` di HP: fresh install, upgrade dari 1.0.3, popup sekali, maintenance retry, action, dan force update.

@@ -165,15 +165,19 @@ Package `google_sign_in` register native plugin saat app start. Tanpa `google-se
 ---
 
 ## FITUR VIDEO PLAYER (TikTok-style):
-- **100% fullscreen portrait** — Video memenuhi seluruh layar, tidak ada area lain
+- **100% fullscreen portrait** — Video proporsional di tengah layar (AspectRatio, no zoom/crop)
 - **Immersive mode** — Status bar & navigation bar tersembunyi
-- **Tap layar** → show/hide overlay (judul, controls)
-- **Swipe bawah** → next episode (langsung ganti, tetap fullscreen)
-- **Swipe atas** → prev episode
+- **Single tap layar** → show/hide overlay (judul, progress bar, episode nav)
+- **Double-tap tengah** → pause/play (visual feedback icon)
+- **Double-tap kiri** → mundur 10 detik (visual feedback icon)
+- **Double-tap kanan** → maju 10 detik (visual feedback icon)
+- **Swipe atas** → next episode (langsung ganti, tetap fullscreen)
+- **Swipe bawah** → prev episode
+- **Progress bar** — Seekable slider di overlay bawah
 - **Tombol prev/next** di overlay bawah
 - **HD/SD toggle** di overlay atas
-- **Direct URL** — ExoPlayer native HLS/MP4, TANPA proxy (CORS bukan masalah di mobile)
-- **Error handling** — Retry, switch quality, next episode, geser untuk skip
+- **Direct URL** — VideoPlayer native HLS/MP4, TANPA proxy, TANPA Chewie controls
+- **Error handling** — Retry, switch quality, next episode
 - **Auto-hide overlay** — Hilang setelah 3 detik
 
 ---
@@ -186,11 +190,26 @@ Package `google_sign_in` register native plugin saat app start. Tanpa `google-se
 ---
 
 ## FITUR SELF-UPDATE:
-- Cek `https://jagatfilm.com/app/version.json` saat app dibuka
+- Cek `https://www.jagatfilm.com/app/version.json` saat app dibuka (URL www, cache-bust)
 - Dialog jika ada versi baru
 - `force_update: true` = dialog tidak bisa ditutup
 - Tombol download buka browser
 - Error tidak crash app
+- Null response = tampilkan error, BUKAN "up to date"
+
+---
+
+## ADMIN PANEL (DEPLOYED):
+- URL: https://masterpanel.jagatfilm.com
+- Login: Google OAuth (mr.harrasnaufal@gmail.com) atau manual
+- Config API: https://masterpanel.jagatfilm.com/api/config (public endpoint)
+- Port: 3004, PM2 "masterpanel", Next.js 14
+- Fitur: branding, popup, maintenance, announcement, force update
+- **Aturan Popup:**
+  - Muncul SEKALI per sesi (saat buka app pertama kali)
+  - Otomatis hilang setelah X detik (popup_duration)
+  - Buka app lagi besok → popup tampil lagi
+  - Action: navigasi halaman dalam app (page:home/search/profile/update/login) atau external URL
 
 ---
 
@@ -215,6 +234,9 @@ Package `google_sign_in` register native plugin saat app start. Tanpa `google-se
 | 16 | 9eaa32f → 1eec02c | fix app crash: error handling, lazy google init, internet permission |
 | 17 | f1084a4 | fix crash: remove google_sign_in, fix assets, fix namespace |
 | 18 | d6379e1 | fix: fullscreen tiktok-style player, direct video URL, episode count |
+| 19 | 7889511 | fix swipe direction, add update icon in home, version 1.0.2 |
+| 20 | b0f61ae | fix: show only working providers on home screen |
+| 21 | 97171c3 | v1.0.3: fix video zoom, gesture controls, fix update checker, fix crash |
 
 ---
 
@@ -239,6 +261,11 @@ Package `google_sign_in` register native plugin saat app start. Tanpa `google-se
 | 15 | Swipe tidak berfungsi | GestureDetector hanya di area video kecil | GestureDetector di seluruh layar |
 | 16 | Video Source error | URL diproxy lewat /api/hls (browser-only) | Pakai URL langsung (ExoPlayer native HLS/MP4) |
 | 17 | Episode selalu 20 | Default fallback 20 jika totalEpisodes=0 | Default 80 (short drama umumnya 60-100 ep) |
+| 18 | Video zoom/crop di player | FittedBox BoxFit.cover crop video & subtitle | AspectRatio+Center, VideoPlayer langsung (no Chewie controls) |
+| 19 | Player controls terlalu kecil | Chewie default buttons scaled wrong di FittedBox | Custom gesture zones: double-tap kiri/tengah/kanan |
+| 20 | Update checker selalu "up to date" | URL tanpa www → 301 redirect, null = "up to date" | URL www, cache-bust ?t=timestamp, null = error message |
+| 21 | APK cached 4 jam di Cloudflare | Nginx no-cache tidak cukup untuk CF CDN | CDN-Cache-Control: no-store → cf-cache-status: BYPASS |
+| 22 | Potential crash setelah update | Tidak ada migration check saat version berubah | _runMigration() di main.dart, detect build number change |
 
 ---
 
@@ -336,3 +363,30 @@ git remote set-url origin https://github.com/mrharrasnaufal-eng/jgfm-app.git
 9. **Splash screen** — Branded splash
 10. **Deep linking** — Buka drama dari URL
 11. **Push notification** — Drama baru
+
+---
+
+## UPDATE 23 AGUSTUS 2026 — APK v1.0.4+5 REMOTE CONFIG (LOCAL)
+
+### Status
+- Implementasi source selesai lokal; belum commit, push, build CI, atau deploy APK.
+- MasterPanel dan kedua endpoint config online (HTTP 200).
+
+### Fitur yang Ditambahkan
+1. Fetch config dari MasterPanel dengan fallback salinan `/app/config.json` dan default aman.
+2. Remote splash dan logo dengan fallback icon bawaan jika URL/image gagal.
+3. Maintenance mode dengan custom message dan tombol retry.
+4. Announcement banner di Home.
+5. Popup sekali per sesi, auto-close 2–30 detik, image/title/message, action internal atau external HTTP(S).
+6. Minimum semantic version dan force-update non-dismissible, terintegrasi dengan update checker lama tanpa dialog ganda.
+7. Sanitasi seluruh payload remote untuk mencegah URL/action berbahaya dan data malformed menyebabkan crash.
+
+### Test dan Validasi
+- Unit test baru: `test/remote_config_test.dart`.
+- Mencakup parsing/sanitasi, clamp durasi, endpoint fallback, defaults saat gagal, dan version comparison.
+- `git diff --check`, import resolution, delimiter/whitespace, schema endpoint, serta audit independen lulus.
+- Flutter/Dart SDK tidak tersedia di VPS, sehingga format/analyze/test/build final wajib melalui GitHub Actions setelah owner meminta commit/push.
+
+### File Utama
+- Baru: `app_remote_config.dart`, `remote_config_service.dart`, `maintenance_screen.dart`, `remote_config_popup.dart`, `remote_config_test.dart`.
+- Diubah: `main.dart`, `home_screen.dart`, `update_service.dart`, `pubspec.yaml` (`1.0.4+5`).

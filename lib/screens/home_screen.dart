@@ -3,13 +3,19 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 import '../models/drama.dart';
 import '../services/api_service.dart';
-import '../services/update_service.dart';
 import '../widgets/drama_card.dart';
 import 'detail_screen.dart';
 import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final String logoUrl;
+  final String announcement;
+
+  const HomeScreen({
+    super.key,
+    this.logoUrl = '',
+    this.announcement = '',
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -34,12 +40,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadDramas();
     _scrollController.addListener(_onScroll);
-    // Check for app update after frame is built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      try {
-        UpdateService.checkForUpdate(context);
-      } catch (_) {}
-    });
   }
 
   @override
@@ -163,14 +163,16 @@ class _HomeScreenState extends State<HomeScreen> {
               snap: true,
               title: Row(
                 children: [
-                  Icon(Icons.movie_filter_rounded,
-                      color: Theme.of(context).colorScheme.primary),
+                  _buildBrandLogo(),
                   const SizedBox(width: 8),
-                  const Text(
-                    'JagatFilm',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
+                  const Expanded(
+                    child: Text(
+                      'JagatFilm',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 22,
+                      ),
                     ),
                   ),
                 ],
@@ -188,6 +190,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
+            if (widget.announcement.isNotEmpty)
+              SliverToBoxAdapter(child: _buildAnnouncement()),
             if (_featuredDramas.isNotEmpty)
               SliverToBoxAdapter(
                 child: _buildFeaturedSlider(),
@@ -261,6 +265,65 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBrandLogo() {
+    if (widget.logoUrl.isEmpty) {
+      return Icon(
+        Icons.movie_filter_rounded,
+        color: Theme.of(context).colorScheme.primary,
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(7),
+      child: SizedBox(
+        width: 30,
+        height: 30,
+        child: Image.network(
+          widget.logoUrl,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => Icon(
+            Icons.movie_filter_rounded,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnnouncement() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF6C63FF).withAlpha(28),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF6C63FF).withAlpha(80)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.campaign_rounded,
+            color: Color(0xFF9C94FF),
+            size: 20,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              widget.announcement,
+              style: TextStyle(
+                color: Colors.grey[200],
+                fontSize: 13,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
