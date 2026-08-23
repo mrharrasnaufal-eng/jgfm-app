@@ -22,7 +22,10 @@ class UpdateService {
 
       if (response.statusCode != 200) return;
 
-      final json = jsonDecode(response.body);
+      final body = response.body;
+      if (body.isEmpty) return;
+
+      final json = jsonDecode(body);
       if (json is! Map<String, dynamic>) return;
 
       final remoteVersionCode = json['versionCode'] as int? ?? 0;

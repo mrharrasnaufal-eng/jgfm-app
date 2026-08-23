@@ -8,9 +8,12 @@ import '../models/user.dart';
 class AuthService extends ChangeNotifier {
   static const String _baseUrl = 'https://jagatfilm.com';
 
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: ['email', 'profile'],
-  );
+  GoogleSignIn? _googleSignIn;
+
+  GoogleSignIn get _google {
+    _googleSignIn ??= GoogleSignIn(scopes: ['email', 'profile']);
+    return _googleSignIn!;
+  }
 
   User? _user;
   String? _token;
@@ -45,7 +48,7 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final googleUser = await _googleSignIn.signIn();
+      final googleUser = await _google.signIn();
       if (googleUser == null) {
         _isLoading = false;
         notifyListeners();
@@ -253,7 +256,7 @@ class AuthService extends ChangeNotifier {
   Future<void> logout() async {
     // Sign out Google juga
     try {
-      await _googleSignIn.signOut();
+      await _google.signOut();
     } catch (_) {}
 
     _user = null;
