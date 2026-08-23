@@ -32,14 +32,16 @@ class _DetailScreenState extends State<DetailScreen> {
       _error = null;
     });
 
-    // Build episode list from totalEpisodes count
-    // (The website doesn't expose a direct detail endpoint via HTTP API)
-    // We construct episode list locally based on drama.totalEpisodes
     try {
       final episodes = <EpisodeInfo>[];
-      final total = widget.drama.totalEpisodes > 0
-          ? widget.drama.totalEpisodes
-          : 20; // default if unknown
+      // Use totalEpisodes from API data
+      // If 0 or unknown, use reasonable default based on drama type
+      int total = widget.drama.totalEpisodes;
+      if (total <= 0) {
+        // Short dramas typically have 60-100 eps, but we start conservative
+        // User can always swipe to discover more via player
+        total = 80;
+      }
 
       for (int i = 1; i <= total; i++) {
         episodes.add(EpisodeInfo(
