@@ -339,57 +339,14 @@ class _RemoteSplash extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (config.splashImageUrl.isNotEmpty)
-            Image.network(
-              config.splashImageUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _fallbackBackground(),
-            )
-          else
-            _fallbackBackground(),
-          Container(color: Colors.black.withAlpha(115)),
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildSplashLogo(context),
-                const SizedBox(height: 24),
-                const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2.5),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSplashLogo(BuildContext context) {
-    if (config.logoUrl.isEmpty) {
-      return Icon(
-        Icons.movie_filter_rounded,
-        size: 84,
-        color: Theme.of(context).colorScheme.primary,
-      );
-    }
-
-    return SizedBox(
-      width: 130,
-      height: 130,
-      child: Image.network(
-        config.logoUrl,
-        fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => Icon(
-          Icons.movie_filter_rounded,
-          size: 84,
-          color: Theme.of(context).colorScheme.primary,
-        ),
+      body: SizedBox.expand(
+        child: config.splashImageUrl.isNotEmpty
+            ? Image.network(
+                config.splashImageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _fallbackBackground(),
+              )
+            : _fallbackBackground(),
       ),
     );
   }
