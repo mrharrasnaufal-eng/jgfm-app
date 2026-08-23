@@ -34,51 +34,99 @@ jobs:
       - name: Restore Android config
         run: |
           # Ensure internet permission
-          sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml || true
-          # Ensure minSdk 21
-          sed -i 's/minSdk = .*/minSdk = 21/' android/app/build.gradle.kts 2>/dev/null || \
-          sed -i 's/minSdk.*/minSdk = 21/' android/app/build.gradle 2>/dev/null || true
+          if ! grep -q "android.permission.INTERNET" android/app/src/main/AndroidManifest.xml; then
+            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml
+          fi
 
       - name: Setup signing key
         id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+          if [ -n "$KEYSTORE_BASE64" ]; then
             echo "SIGNING_AVAILABLE=true" >> $GITHUB_OUTPUT
             echo "✅ Signing key found - will build RELEASE APK"
-            
-            # Decode keystore
-            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
-            
-            # Create key.properties
-            cat > android/key.properties << EOF
-          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
-          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          storeFile=upload-keystore.jks
-          EOF
-            
-            # Inject signingConfigs into build.gradle
-            # Works with both .gradle and .gradle.kts
-            if [ -f android/app/build.gradle.kts ]; then
-              # Kotlin DSL
-              sed -i '/android {/a \
-          \    val keystoreProperties = java.util.Properties()\n    val keystoreFile = rootProject.file("app/key.properties")\n    if (keystoreFile.exists()) { keystoreProperties.load(java.io.FileInputStream(keystoreFile)) }\n\n    signingConfigs {\n        create("release") {\n            keyAlias = keystoreProperties["keyAlias"] as String? ?: ""\n            keyPassword = keystoreProperties["keyPassword"] as String? ?: ""\n            storeFile = file(keystoreProperties["storeFile"] as String? ?: "upload-keystore.jks")\n            storePassword = keystoreProperties["storePassword"] as String? ?: ""\n        }\n    }' android/app/build.gradle.kts
-              # Change release buildType signing
-              sed -i 's/signingConfig = signingConfigs.getByName("debug")/signingConfig = signingConfigs.getByName("release")/' android/app/build.gradle.kts
-            else
-              # Groovy DSL
-              sed -i '/android {/a \
-          \    def keystoreProperties = new Properties()\n    def keystoreFile = rootProject.file("app/key.properties")\n    if (keystoreFile.exists()) { keystoreProperties.load(new FileInputStream(keystoreFile)) }\n\n    signingConfigs {\n        release {\n            keyAlias keystoreProperties["keyAlias"]\n            keyPassword keystoreProperties["keyPassword"]\n            storeFile file(keystoreProperties["storeFile"])\n            storePassword keystoreProperties["storePassword"]\n        }\n    }' android/app/build.gradle
-              sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/' android/app/build.gradle
+
+            # Decode keystore to android/app/
+            echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+
+            # Create key.properties in android/
+            cat > android/key.properties << KEYEOF
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=../app/upload-keystore.jks
+          KEYEOF
+
+            # Patch build.gradle.kts to use signing config
+            BUILD_FILE="android/app/build.gradle.kts"
+            if [ -f "$BUILD_FILE" ]; then
+              # Create a patched version with signing
+              cat > /tmp/signing_patch.py << 'PYEOF'
+          import re, sys
+          
+          with open(sys.argv[1], 'r') as f:
+              content = f.read()
+          
+          # Add imports and keystoreProperties before android block
+          signing_setup = '''
+          import java.util.Properties
+          import java.io.FileInputStream
+          
+          val keystoreProperties = Properties()
+          val keystoreFile = rootProject.file("key.properties")
+          if (keystoreFile.exists()) {
+              keystoreProperties.load(FileInputStream(keystoreFile))
+          }
+          
+          '''
+          
+          # Add signingConfigs inside android block
+          signing_config = '''
+              signingConfigs {
+                  create("release") {
+                      keyAlias = keystoreProperties["keyAlias"] as String
+                      keyPassword = keystoreProperties["keyPassword"] as String
+                      storeFile = file(keystoreProperties["storeFile"] as String)
+                      storePassword = keystoreProperties["storePassword"] as String
+                  }
+              }
+          '''
+          
+          # Insert signing setup before 'android {'
+          if 'keystoreProperties' not in content:
+              content = content.replace('android {', signing_setup + 'android {')
+          
+          # Insert signingConfigs after 'android {'
+          if 'signingConfigs' not in content:
+              content = content.replace('android {', 'android {\n' + signing_config)
+          
+          # Change release signing from debug to release
+          content = content.replace(
+              'signingConfig = signingConfigs.getByName("debug")',
+              'signingConfig = signingConfigs.getByName("release")'
+          )
+          
+          # If no release buildType with signing, add it
+          if 'signingConfigs.getByName("release")' not in content:
+              content = content.replace(
+                  'buildTypes {',
+                  'buildTypes {\n        release {\n            signingConfig = signingConfigs.getByName("release")\n        }'
+              )
+          
+          with open(sys.argv[1], 'w') as f:
+              f.write(content)
+          
+          print("✅ build.gradle.kts patched for release signing")
+          PYEOF
+              python3 /tmp/signing_patch.py "$BUILD_FILE"
             fi
           else
             echo "SIGNING_AVAILABLE=false" >> $GITHUB_OUTPUT
-            echo "⚠️ WARNING: Signing key NOT found - will build DEBUG APK"
-            echo "⚠️ To enable signed release, add these GitHub Secrets:"
-            echo "   - ANDROID_KEYSTORE_BASE64"
-            echo "   - ANDROID_KEYSTORE_PASSWORD"
-            echo "   - ANDROID_KEY_ALIAS"
-            echo "   - ANDROID_KEY_PASSWORD"
+            echo "⚠️ Signing key NOT found - building DEBUG APK"
           fi
 
       - name: Install dependencies
@@ -93,29 +141,25 @@ jobs:
 
       - name: Build Debug APK (fallback)
         if: steps.signing.outputs.SIGNING_AVAILABLE != 'true'
-        run: |
-          echo "⚠️ Building DEBUG APK because signing key is not configured"
-          flutter build apk --debug
+        run: flutter build apk --debug
 
-      - name: Prepare deploy folder
+      - name: Prepare deploy
         run: |
           mkdir -p deploy
 
-          # Copy APK (release or debug)
           if [ "${{ steps.signing.outputs.SIGNING_AVAILABLE }}" == "true" ]; then
             cp build/app/outputs/flutter-apk/app-release.apk deploy/app-release.apk
-            echo "📦 Release APK (signed)"
+            echo "📦 Signed Release APK"
           else
             cp build/app/outputs/flutter-apk/app-debug.apk deploy/app-release.apk
-            echo "⚠️ Debug APK (unsigned) - update will require uninstall if switching from signed"
+            echo "⚠️ Debug APK (unsigned)"
           fi
 
-          # Extract version from pubspec.yaml
-          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //')
+          # Generate version.json from pubspec.yaml
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | tr -d ' ')
           VERSION_NAME=$(echo "$VERSION" | cut -d'+' -f1)
           VERSION_CODE=$(echo "$VERSION" | cut -d'+' -f2)
 
-          # Create version.json
           cat > deploy/version.json << EOF
           {
             "version": "$VERSION_NAME",
@@ -126,8 +170,7 @@ jobs:
           }
           EOF
 
-          echo "✅ Version: $VERSION_NAME (code: $VERSION_CODE)"
-          cat deploy/version.json
+          echo "✅ Version: $VERSION_NAME+$VERSION_CODE"
           ls -la deploy/
 
       - name: Upload APK artifact
@@ -136,14 +179,15 @@ jobs:
           name: app-release-apk
           path: deploy/app-release.apk
 
-      - name: Upload version.json artifact
+      - name: Upload version.json
         uses: actions/upload-artifact@v4
         with:
           name: version-json
           path: deploy/version.json
 
-      - name: Deploy to aaPanel via SSH
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      - name: Deploy APK to aaPanel
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.AAPANEL_HOST }}
@@ -151,13 +195,12 @@ jobs:
           username: ${{ secrets.AAPANEL_USER }}
           key: ${{ secrets.AAPANEL_SSH_KEY }}
           source: "deploy/app-release.apk,deploy/version.json"
-          target: ${{ secrets.AAPANEL_DEPLOY_PATH }}
-          strip_components: 1
+          target: "/tmp/jgfm-deploy"
           overwrite: true
-        continue-on-error: true
 
-      - name: Move files to correct paths on server
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      - name: Move files on server
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.AAPANEL_HOST }}
@@ -166,13 +209,11 @@ jobs:
           key: ${{ secrets.AAPANEL_SSH_KEY }}
           script: |
             DEPLOY_PATH="${{ secrets.AAPANEL_DEPLOY_PATH }}"
-            mkdir -p "$DEPLOY_PATH/download"
-            mkdir -p "$DEPLOY_PATH/app"
-            mv "$DEPLOY_PATH/app-release.apk" "$DEPLOY_PATH/download/app-release.apk" 2>/dev/null || true
-            mv "$DEPLOY_PATH/version.json" "$DEPLOY_PATH/app/version.json" 2>/dev/null || true
-            chmod 644 "$DEPLOY_PATH/download/app-release.apk"
-            chmod 644 "$DEPLOY_PATH/app/version.json"
-            echo "✅ Deploy complete!"
+            mkdir -p "$DEPLOY_PATH/download" "$DEPLOY_PATH/app"
+            cp /tmp/jgfm-deploy/deploy/app-release.apk "$DEPLOY_PATH/download/app-release.apk"
+            cp /tmp/jgfm-deploy/deploy/version.json "$DEPLOY_PATH/app/version.json"
+            chmod 644 "$DEPLOY_PATH/download/app-release.apk" "$DEPLOY_PATH/app/version.json"
+            rm -rf /tmp/jgfm-deploy
+            echo "✅ Deployed!"
             ls -la "$DEPLOY_PATH/download/app-release.apk"
-            ls -la "$DEPLOY_PATH/app/version.json"
-        continue-on-error: true
+            cat "$DEPLOY_PATH/app/version.json"
