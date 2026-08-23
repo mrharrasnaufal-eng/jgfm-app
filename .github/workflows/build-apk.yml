@@ -49,6 +49,8 @@ jobs:
       - name: Overwrite build.gradle.kts with signing
         run: |
           cat > android/app/build.gradle.kts << 'GRADLEOF'
+          @file:Suppress("DEPRECATION")
+
           plugins {
               id("com.android.application")
               id("kotlin-android")
