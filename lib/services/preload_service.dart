@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -37,87 +35,39 @@ class PreloadService {
     'microdrama', 'dotdrama', 'dramabox', 'starshort',
   ];
 
-  /// How many providers to fetch from in parallel each session.
-  static const _providerSampleSize = 6;
-
-  /// How many dramas to request per provider.
-  static const _perProviderLimit = 12;
-
   /// Max thumbnails to precache.
   static const _maxPrecacheThumbnails = 12;
 
   final ApiService _api = ApiService();
-  final Random _random = Random();
 
-  /// Fetch dramas from multiple random providers, shuffle results,
-  /// and precache popup + thumbnail images. Designed to run within
-  /// the 5-second splash window.
+  /// Fetch dramas from shortmax (default provider), and precache
+  /// popup + thumbnail images. Designed to run within the 5-second splash window.
   Future<PreloadResult> preload({
     required AppRemoteConfig config,
     BuildContext? context,
   }) async {
     try {
-      // 1. Pick a random subset of working providers
-      final shuffledProviders = List<String>.from(_workingProviders)
-        ..shuffle(_random);
-      final selectedProviders =
-          shuffledProviders.take(_providerSampleSize).toList();
+      // Fetch shortmax as the default home provider
+      final response = await _api
+          .getDramas(page: 1, limit: 30, provider: 'shortmax')
+          .timeout(const Duration(seconds: 4));
 
-      // 2. Fetch from all selected providers in parallel
-      final futures = selectedProviders.map(
-        (provider) => _fetchProvider(provider),
-      );
-      final results = await Future.wait(futures);
+      final dramas = response.dramas;
+      final providers = Map<String, int>.from(response.providers);
+      providers.removeWhere((key, _) => !_workingProviders.contains(key));
 
-      // 3. Collect all dramas and provider counts
-      final allDramas = <Drama>[];
-      final providerCounts = <String, int>{};
-      bool hasMore = false;
-
-      for (final result in results) {
-        if (result != null) {
-          allDramas.addAll(result.dramas);
-          hasMore = hasMore || result.hasMore;
-          result.providers.forEach((key, value) {
-            if (_workingProviders.contains(key)) {
-              providerCounts[key] = value;
-            }
-          });
-        }
-      }
-
-      // 4. Deduplicate by drama ID, then shuffle for variety
-      final seen = <String>{};
-      final uniqueDramas = <Drama>[];
-      for (final drama in allDramas) {
-        if (drama.id.isNotEmpty && seen.add(drama.id)) {
-          uniqueDramas.add(drama);
-        }
-      }
-      uniqueDramas.shuffle(_random);
-
-      // 5. Precache images in parallel (non-blocking, best-effort)
+      // Precache images in parallel (non-blocking, best-effort)
       if (context != null) {
-        _precacheImages(context, config, uniqueDramas);
+        _precacheImages(context, config, dramas);
       }
 
       return PreloadResult(
-        dramas: uniqueDramas,
-        providers: providerCounts,
-        hasMore: hasMore,
+        dramas: dramas,
+        providers: providers,
+        hasMore: response.hasMore,
       );
     } catch (_) {
       return const PreloadResult.empty();
-    }
-  }
-
-  Future<DramaListResponse?> _fetchProvider(String provider) async {
-    try {
-      return await _api
-          .getDramas(page: 1, limit: _perProviderLimit, provider: provider)
-          .timeout(const Duration(seconds: 4));
-    } catch (_) {
-      return null;
     }
   }
 

@@ -85,71 +85,26 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      if (_selectedProvider == 'all') {
-        // Mix multiple providers in parallel and shuffle
-        final shuffled = List<String>.from(_workingProviders)..shuffle();
-        final selected = shuffled.take(6).toList();
+      // Default "all" = shortmax (tanpa watermark, bahasa Indonesia)
+      // User bisa pilih provider lain lewat filter chip
+      final providerParam =
+          _selectedProvider == 'all' ? 'shortmax' : _selectedProvider;
 
-        final futures = selected.map(
-          (p) => _api
-              .getDramas(page: 1, limit: 12, provider: p)
-              .timeout(const Duration(seconds: 4))
-              .catchError((_) => DramaListResponse(
-                    dramas: [],
-                    page: 1,
-                    totalPages: 1,
-                    total: 0,
-                    hasMore: false,
-                    providers: {},
-                  )),
-        );
-        final results = await Future.wait(futures);
+      final response = await _api.getDramas(
+        page: 1,
+        limit: 30,
+        provider: providerParam,
+      );
 
-        final allDramas = <Drama>[];
-        final allProviders = <String, int>{};
-        bool hasMore = false;
-        for (final r in results) {
-          allDramas.addAll(r.dramas);
-          hasMore = hasMore || r.hasMore;
-          r.providers.forEach((k, v) {
-            if (_workingProviders.contains(k)) allProviders[k] = v;
-          });
-        }
-
-        // Deduplicate and shuffle
-        final seen = <String>{};
-        final unique = <Drama>[];
-        for (final d in allDramas) {
-          if (d.id.isNotEmpty && seen.add(d.id)) unique.add(d);
-        }
-        unique.shuffle();
-
-        setState(() {
-          _dramas = unique;
-          _featuredDramas = unique.take(5).toList();
-          _providers = allProviders;
-          _hasMore = hasMore;
-          _currentPage = 1;
-          _isLoading = false;
-        });
-      } else {
-        // Single provider mode
-        final response = await _api.getDramas(
-          page: 1,
-          limit: 30,
-          provider: _selectedProvider,
-        );
-
-        setState(() {
-          _dramas = response.dramas;
-          _featuredDramas = response.dramas.take(5).toList();
-          _providers = response.providers;
-          _providers.removeWhere((key, _) => !_workingProviders.contains(key));
-          _hasMore = response.hasMore;
-          _currentPage = 1;
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _dramas = response.dramas;
+        _featuredDramas = response.dramas.take(5).toList();
+        _providers = response.providers;
+        _providers.removeWhere((key, _) => !_workingProviders.contains(key));
+        _hasMore = response.hasMore;
+        _currentPage = 1;
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -163,8 +118,8 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _isLoadingMore = true);
 
     try {
-      String providerParam = _selectedProvider;
-      if (_selectedProvider == 'all') providerParam = 'shortmax';
+      final providerParam =
+          _selectedProvider == 'all' ? 'shortmax' : _selectedProvider;
 
       final response = await _api.getDramas(
         page: _currentPage + 1,
