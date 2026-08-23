@@ -133,7 +133,9 @@ class _PeringkatTabState extends State<PeringkatTab>
         views: views,
         rank: rank,
       );
-    }).toList();
+    }).where((d) =>
+      !const {'flickshort', 'fundrama', 'vigloo', 'dramanova'}.contains(d.source)
+    ).toList();
   }
 
   Future<void> _loadData() async {

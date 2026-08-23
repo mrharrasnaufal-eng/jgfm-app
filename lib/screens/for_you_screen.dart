@@ -71,7 +71,11 @@ class _ForYouScreenState extends State<ForYouScreen> {
       final response = results[0] as DramaListResponse;
       final viewCounts = results[1] as Map<String, int>;
 
-      final dramas = response.dramas;
+      // Exclude broken providers
+      const brokenProviders = {'flickshort', 'fundrama', 'vigloo', 'dramanova'};
+      final dramas = response.dramas
+          .where((d) => !brokenProviders.contains(d.source))
+          .toList();
       dramas.shuffle(Random());
 
       setState(() {
@@ -96,7 +100,9 @@ class _ForYouScreenState extends State<ForYouScreen> {
 
     try {
       final response = await _api.getDramas(page: _currentPage + 1, limit: 20);
-      final dramas = response.dramas;
+      final dramas = response.dramas
+          .where((d) => !const {'flickshort', 'fundrama', 'vigloo', 'dramanova'}.contains(d.source))
+          .toList();
       dramas.shuffle(Random());
 
       setState(() {

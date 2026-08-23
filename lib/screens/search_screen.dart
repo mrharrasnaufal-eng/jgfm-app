@@ -159,7 +159,9 @@ class _SearchScreenState extends State<SearchScreen> {
     try {
       final results = await _api.searchDramas(query);
       setState(() {
-        _results = results;
+        _results = results
+            .where((d) => !const {'flickshort', 'fundrama', 'vigloo', 'dramanova'}.contains(d.source))
+            .toList();
         _isLoading = false;
       });
     } catch (e) {

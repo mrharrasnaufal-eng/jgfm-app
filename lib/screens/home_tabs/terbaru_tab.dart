@@ -83,7 +83,9 @@ class _TerbaruTabState extends State<TerbaruTab>
         viewCount: item['view_count'] as int? ?? 0,
         rank: i + 1 + (page - 1) * _limit,
       );
-    }).toList();
+    }).where((d) =>
+      !const {'flickshort', 'fundrama', 'vigloo', 'dramanova'}.contains(d.source)
+    ).toList();
   }
 
   Future<void> _loadInitial() async {
