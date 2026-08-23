@@ -57,6 +57,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // Provider yang video streaming-nya terbukti berfungsi
+  static const _workingProviders = [
+    'shortmax', 'cashdrama', 'netshort', 'rapidtv', 'bilitv',
+    'flickreels', 'melolo', 'wetv', 'dramabite', 'reelshort',
+    'microdrama', 'dotdrama', 'dramabox', 'starshort',
+  ];
+
   Future<void> _loadDramas() async {
     setState(() {
       _isLoading = true;
@@ -64,15 +71,39 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
+      // Jika user pilih "all", load dari provider yang working
+      // Jika user pilih provider tertentu, load sesuai pilihan
+      String providerParam = _selectedProvider;
+      if (_selectedProvider == 'all') {
+        // Load shortmax sebagai default (paling banyak dan stabil)
+        providerParam = 'shortmax';
+      }
+
       final response = await _api.getDramas(
         page: 1,
         limit: 30,
-        provider: _selectedProvider,
+        provider: providerParam,
       );
+
+      // Jika "all" dipilih, load juga dari provider lain
+      List<Drama> allDramas = response.dramas;
+      if (_selectedProvider == 'all' && allDramas.length < 30) {
+        // Tambah dari provider lain
+        for (final p in ['cashdrama', 'netshort', 'rapidtv', 'bilitv', 'flickreels']) {
+          try {
+            final extra = await _api.getDramas(page: 1, limit: 10, provider: p);
+            allDramas.addAll(extra.dramas);
+          } catch (_) {}
+          if (allDramas.length >= 30) break;
+        }
+      }
+
       setState(() {
-        _dramas = response.dramas;
-        _featuredDramas = response.dramas.take(5).toList();
+        _dramas = allDramas;
+        _featuredDramas = allDramas.take(5).toList();
         _providers = response.providers;
+        // Filter providers list to show only working ones
+        _providers.removeWhere((key, _) => !_workingProviders.contains(key));
         _hasMore = response.hasMore;
         _currentPage = 1;
         _isLoading = false;
@@ -90,10 +121,13 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _isLoadingMore = true);
 
     try {
+      String providerParam = _selectedProvider;
+      if (_selectedProvider == 'all') providerParam = 'shortmax';
+
       final response = await _api.getDramas(
         page: _currentPage + 1,
         limit: 30,
-        provider: _selectedProvider,
+        provider: providerParam,
       );
       setState(() {
         _dramas.addAll(response.dramas);
