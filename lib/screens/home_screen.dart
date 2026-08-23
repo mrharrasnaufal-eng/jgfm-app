@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../services/update_service.dart';
 import '../widgets/drama_card.dart';
 import 'detail_screen.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -140,9 +141,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.system_update_rounded, color: Colors.white70),
+                  tooltip: 'Cek Pembaruan',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const UpdateScreen()),
+                    );
+                  },
+                ),
+              ],
             ),
-
-            // Featured Slider
             if (_featuredDramas.isNotEmpty)
               SliverToBoxAdapter(
                 child: _buildFeaturedSlider(),

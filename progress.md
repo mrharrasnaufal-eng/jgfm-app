@@ -79,11 +79,29 @@ Owner (mrharrasnaufal) **sangat keberatan** dengan app yang crash. Setiap peruba
 - Namespace mismatch → CRASH
 - `package_info_plus` dipanggil tanpa try-catch → potential CRASH
 
+### ATURAN KONSISTENSI (JANGAN DILANGGAR):
+- **SEBELUM kerja, BACA LOG INI DULU** — lihat apa yang sudah pernah berhasil dan gagal
+- **Jangan masukkan kembali kode yang sudah pernah gagal** — jika `kotlinOptions` gagal, JANGAN pakai lagi di commit berikutnya
+- **Jika suatu pendekatan berhasil di commit tertentu, pakai PERSIS sama** — jangan variasi
+- **Catat setiap error dan solusinya** — referensi untuk kedepannya
+- **Konfigurasi Gradle yang BENAR (sudah terbukti berhasil):**
+  ```kotlin
+  import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+  kotlin {
+      compilerOptions {
+          jvmTarget.set(JvmTarget.JVM_11)
+      }
+  }
+  ```
+  JANGAN pakai: `kotlinOptions { jvmTarget = ... }` — INI GAGAL/DEPRECATED
+
 ### ATURAN WORKFLOW:
-- `flutter create` generate android/ → **JANGAN hapus/replace file apapun kecuali inject signing**
-- Signing: buat `key.properties` + inject via Python (append, bukan replace)
+- `flutter create` generate android/ → **overwrite build.gradle.kts** dengan template yang sudah TERBUKTI berhasil
+- Signing: `signingConfigs` SEBELUM `buildTypes`
+- Keystore: decode SEBELUM overwrite file
 - Internet permission: tambah via sed JIKA belum ada
-- Itu saja. Jangan sentuh yang lain.
+- Itu saja. Jangan eksperimen.
 
 ---
 ```

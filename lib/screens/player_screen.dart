@@ -206,9 +206,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
         // Swipe down = next, swipe up = prev
         onVerticalDragEnd: (details) {
           if (details.primaryVelocity == null) return;
-          if (details.primaryVelocity! > 200) {
+          // Swipe ke atas (jari naik) = next episode (seperti TikTok)
+          if (details.primaryVelocity! < -200) {
             _nextEpisode();
-          } else if (details.primaryVelocity! < -200) {
+          // Swipe ke bawah (jari turun) = prev episode
+          } else if (details.primaryVelocity! > 200) {
             _prevEpisode();
           }
         },
@@ -457,11 +459,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.swipe_down_rounded,
+                const Icon(Icons.swipe_up_rounded,
                     color: Colors.white38, size: 16),
                 const SizedBox(width: 4),
                 Text(
-                  'Geser bawah = episode berikutnya',
+                  'Geser atas = episode berikutnya',
                   style: TextStyle(color: Colors.grey[500], fontSize: 11),
                 ),
               ],
