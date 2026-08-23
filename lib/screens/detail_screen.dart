@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:http/http.dart' as http;
 import '../models/drama.dart';
 import '../services/api_service.dart';
 import 'player_screen.dart';
@@ -33,34 +35,63 @@ class _DetailScreenState extends State<DetailScreen> {
     });
 
     try {
-      final episodes = <EpisodeInfo>[];
-      // Use totalEpisodes from API data
-      // If 0 or unknown, use reasonable default based on drama type
-      int total = widget.drama.totalEpisodes;
-      if (total <= 0) {
-        // Short dramas typically have 60-100 eps, but we start conservative
-        // User can always swipe to discover more via player
-        total = 80;
+      // Fetch real episode list from API
+      final uri = Uri.parse(
+          '${ApiService.baseUrl}/api/drama/detail?id=${widget.drama.id}');
+      final response = await http.get(uri, headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'JagatFilm-Android/2.0',
+      }).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        if (json['success'] == true && json['data'] != null) {
+          final data = json['data'];
+          final episodeList = data['episodes'] as List<dynamic>? ?? [];
+
+          if (episodeList.isNotEmpty) {
+            final episodes = episodeList.map((ep) => EpisodeInfo(
+              id: ep['id']?.toString() ?? '',
+              number: ep['number'] as int? ?? 0,
+              title: ep['title']?.toString() ?? 'Episode ${ep['number']}',
+            )).toList();
+
+            setState(() {
+              _episodes = episodes;
+              _isLoading = false;
+            });
+            return;
+          }
+        }
       }
 
-      for (int i = 1; i <= total; i++) {
-        episodes.add(EpisodeInfo(
-          id: i.toString(),
-          number: i,
-          title: 'Episode $i',
-        ));
-      }
-
-      setState(() {
-        _episodes = episodes;
-        _isLoading = false;
-      });
+      // Fallback: generate episodes from totalEpisodes
+      _fallbackEpisodes();
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+      // On network error, fallback to generated list
+      _fallbackEpisodes();
     }
+  }
+
+  void _fallbackEpisodes() {
+    int total = widget.drama.totalEpisodes;
+    if (total <= 0) {
+      total = 300; // Conservative high default — player will handle if episode doesn't exist
+    }
+
+    final episodes = <EpisodeInfo>[];
+    for (int i = 1; i <= total; i++) {
+      episodes.add(EpisodeInfo(
+        id: i.toString(),
+        number: i,
+        title: 'Episode $i',
+      ));
+    }
+
+    setState(() {
+      _episodes = episodes;
+      _isLoading = false;
+    });
   }
 
   void _playEpisode(EpisodeInfo episode) {

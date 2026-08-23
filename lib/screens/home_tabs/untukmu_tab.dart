@@ -62,7 +62,7 @@ class _UntukmuTabState extends State<UntukmuTab>
 
     try {
       final results = await Future.wait([
-        _api.getDramas(page: 1, limit: 30, provider: 'all'),
+        _api.getDramas(page: 1, limit: 30, provider: 'shortmax'),
         _fetchPopularStats(),
       ]);
 
@@ -122,7 +122,7 @@ class _UntukmuTabState extends State<UntukmuTab>
       final response = await _api.getDramas(
         page: _currentPage + 1,
         limit: 30,
-        provider: 'all',
+        provider: 'shortmax',
       );
 
       if (!mounted) return;
