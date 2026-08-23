@@ -37,13 +37,16 @@ class _KategoriTabState extends State<KategoriTab>
 
   static const List<String> _genres = [
     'Semua',
-    'Romance',
+    'Cinta',
+    'Balas Dendam',
+    'CEO',
+    'Fantasi',
+    'Keluarga',
+    'Kota',
+    'Pembalikan',
+    'Cinta Manis',
     'Drama',
-    'Action',
-    'Fantasy',
-    'Comedy',
-    'Thriller',
-    'Horror',
+    'Romance',
   ];
 
   static const List<String> _sortOptions = [
@@ -99,8 +102,11 @@ class _KategoriTabState extends State<KategoriTab>
 
       if (!mounted) return;
 
-      // Build provider list from response
-      final providers = response.providers.entries.toList()
+      // Build provider list from response — exclude broken providers
+      const brokenProviders = {'flickshort', 'fundrama', 'vigloo', 'dramanova'};
+      final providers = response.providers.entries
+          .where((e) => !brokenProviders.contains(e.key))
+          .toList()
         ..sort((a, b) => b.value.compareTo(a.value));
       final providerNames = providers
           .take(12)
@@ -151,6 +157,13 @@ class _KategoriTabState extends State<KategoriTab>
 
   void _applyFilters() {
     List<Drama> result = List.from(_allDramas);
+
+    // Exclude broken providers
+    const brokenProviders = {'flickshort', 'fundrama', 'vigloo', 'dramanova'};
+    if (_selectedProviderIndex == 0) {
+      // When 'all' is selected, remove broken providers
+      result = result.where((d) => !brokenProviders.contains(d.source)).toList();
+    }
 
     // Genre filter (client-side)
     if (_selectedGenreIndex > 0) {
