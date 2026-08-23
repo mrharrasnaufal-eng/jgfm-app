@@ -3,7 +3,7 @@
 
 ---
 
-## STATUS: AUTO DEPLOY AKTIF ✅
+## STATUS: AUTO DEPLOY AKTIF ✅ — SIGNED RELEASE APK
 
 ---
 
@@ -13,7 +13,25 @@
 - **APK URL:** https://jagatfilm.com/download/app-release.apk
 - **Version JSON:** https://jagatfilm.com/app/version.json
 - **Halaman Download:** https://jagatfilm.com/download/
-- **Build type:** Debug (belum signed release)
+- **Build type:** Signed Release (keystore configured)
+
+---
+
+## SIGNING KEY:
+- **Keystore file:** `/root/android-keystore/upload-keystore.jks`
+- **Alias:** `jagatfilm`
+- **Password:** `JgFm2026SecureKey!` (store & key sama)
+- **Validity:** 10000 hari (~27 tahun)
+- **SHA-256:** `4D:8B:D0:BF:8F:22:5E:B5:1B:F6:1A:19:27:61:44:E6:32:9E:CA:6B:7D:F6:8F:70:29:8C:7F:5B:33:0E:3E:EC`
+- **⚠️ JANGAN HAPUS FILE KEYSTORE! Jika hilang, user harus uninstall app.**
+
+### GitHub Secrets (sudah diisi):
+| Secret | Nilai |
+|--------|-------|
+| ANDROID_KEYSTORE_BASE64 | Base64 encoded keystore |
+| ANDROID_KEYSTORE_PASSWORD | JgFm2026SecureKey! |
+| ANDROID_KEY_ALIAS | jagatfilm |
+| ANDROID_KEY_PASSWORD | JgFm2026SecureKey! |
 
 ---
 
@@ -138,6 +156,8 @@ package_info_plus: 8.0.2
 | 9 | 526e218 | fix video player source error and overflow |
 | 10 | 1e4c805 | add self update checker |
 | 11 | 3e3ccfc | fix app errors portrait video and auto apk deploy |
+| 12 | e3a4603 | add signed release APK support with fallback debug |
+| 13 | d036b6b | use signed release APK build with secrets |
 
 ---
 

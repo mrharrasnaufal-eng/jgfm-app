@@ -38,95 +38,75 @@ jobs:
             sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml
           fi
 
-      - name: Setup signing key
+      - name: Setup signing and build.gradle.kts
         id: signing
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "SIGNING_AVAILABLE=true" >> $GITHUB_OUTPUT
-            echo "✅ Signing key found - will build RELEASE APK"
+            echo "✅ Signing key found"
 
-            # Decode keystore to android/app/
+            # Decode keystore
             echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
 
-            # Create key.properties in android/
-            cat > android/key.properties << KEYEOF
-          storePassword=$KEYSTORE_PASSWORD
-          keyPassword=$KEY_PASSWORD
-          keyAlias=$KEY_ALIAS
-          storeFile=../app/upload-keystore.jks
-          KEYEOF
-
-            # Patch build.gradle.kts to use signing config
-            BUILD_FILE="android/app/build.gradle.kts"
-            if [ -f "$BUILD_FILE" ]; then
-              # Create a patched version with signing
-              cat > /tmp/signing_patch.py << 'PYEOF'
-          import re, sys
-          
-          with open(sys.argv[1], 'r') as f:
-              content = f.read()
-          
-          # Add imports and keystoreProperties before android block
-          signing_setup = '''
-          import java.util.Properties
-          import java.io.FileInputStream
-          
-          val keystoreProperties = Properties()
-          val keystoreFile = rootProject.file("key.properties")
-          if (keystoreFile.exists()) {
-              keystoreProperties.load(FileInputStream(keystoreFile))
+            # Overwrite build.gradle.kts with signing config
+            cat > android/app/build.gradle.kts << 'GRADLEOF'
+          plugins {
+              id("com.android.application")
+              id("kotlin-android")
+              id("dev.flutter.flutter-gradle-plugin")
           }
-          
-          '''
-          
-          # Add signingConfigs inside android block
-          signing_config = '''
+
+          android {
+              namespace = "com.jagatfilm.app"
+              compileSdk = flutter.compileSdkVersion
+              ndkVersion = flutter.ndkVersion
+
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_11
+                  targetCompatibility = JavaVersion.VERSION_11
+              }
+
+              kotlinOptions {
+                  jvmTarget = JavaVersion.VERSION_11.toString()
+              }
+
               signingConfigs {
                   create("release") {
-                      keyAlias = keystoreProperties["keyAlias"] as String
-                      keyPassword = keystoreProperties["keyPassword"] as String
-                      storeFile = file(keystoreProperties["storeFile"] as String)
-                      storePassword = keystoreProperties["storePassword"] as String
+                      storeFile = file("upload-keystore.jks")
+                      storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: ""
+                      keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: ""
+                      keyPassword = System.getenv("ANDROID_KEY_PASSWORD") ?: ""
                   }
               }
-          '''
-          
-          # Insert signing setup before 'android {'
-          if 'keystoreProperties' not in content:
-              content = content.replace('android {', signing_setup + 'android {')
-          
-          # Insert signingConfigs after 'android {'
-          if 'signingConfigs' not in content:
-              content = content.replace('android {', 'android {\n' + signing_config)
-          
-          # Change release signing from debug to release
-          content = content.replace(
-              'signingConfig = signingConfigs.getByName("debug")',
-              'signingConfig = signingConfigs.getByName("release")'
-          )
-          
-          # If no release buildType with signing, add it
-          if 'signingConfigs.getByName("release")' not in content:
-              content = content.replace(
-                  'buildTypes {',
-                  'buildTypes {\n        release {\n            signingConfig = signingConfigs.getByName("release")\n        }'
-              )
-          
-          with open(sys.argv[1], 'w') as f:
-              f.write(content)
-          
-          print("✅ build.gradle.kts patched for release signing")
-          PYEOF
-              python3 /tmp/signing_patch.py "$BUILD_FILE"
-            fi
+
+              defaultConfig {
+                  applicationId = "com.jagatfilm.app"
+                  minSdk = 21
+                  targetSdk = flutter.targetSdkVersion
+                  versionCode = flutter.versionCode
+                  versionName = flutter.versionName
+              }
+
+              buildTypes {
+                  release {
+                      signingConfig = signingConfigs.getByName("release")
+                      isMinifyEnabled = false
+                      isShrinkResources = false
+                  }
+              }
+          }
+
+          flutter {
+              source = "../.."
+          }
+          GRADLEOF
+
+            echo "✅ build.gradle.kts written with release signing"
           else
             echo "SIGNING_AVAILABLE=false" >> $GITHUB_OUTPUT
-            echo "⚠️ Signing key NOT found - building DEBUG APK"
+            echo "⚠️ No signing key - will build debug"
           fi
 
       - name: Install dependencies
@@ -137,6 +117,10 @@ jobs:
 
       - name: Build Release APK
         if: steps.signing.outputs.SIGNING_AVAILABLE == 'true'
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: flutter build apk --release
 
       - name: Build Debug APK (fallback)
@@ -152,10 +136,9 @@ jobs:
             echo "📦 Signed Release APK"
           else
             cp build/app/outputs/flutter-apk/app-debug.apk deploy/app-release.apk
-            echo "⚠️ Debug APK (unsigned)"
+            echo "⚠️ Debug APK"
           fi
 
-          # Generate version.json from pubspec.yaml
           VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | tr -d ' ')
           VERSION_NAME=$(echo "$VERSION" | cut -d'+' -f1)
           VERSION_CODE=$(echo "$VERSION" | cut -d'+' -f2)
@@ -185,7 +168,7 @@ jobs:
           name: version-json
           path: deploy/version.json
 
-      - name: Deploy APK to aaPanel
+      - name: Deploy to aaPanel
         if: github.ref == 'refs/heads/main'
         continue-on-error: true
         uses: appleboy/scp-action@v0.1.7
@@ -215,5 +198,3 @@ jobs:
             chmod 644 "$DEPLOY_PATH/download/app-release.apk" "$DEPLOY_PATH/app/version.json"
             rm -rf /tmp/jgfm-deploy
             echo "✅ Deployed!"
-            ls -la "$DEPLOY_PATH/download/app-release.apk"
-            cat "$DEPLOY_PATH/app/version.json"
