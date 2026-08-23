@@ -46,12 +46,12 @@ class AppTheme {
           selectedLabelStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
           unselectedLabelStyle: TextStyle(fontSize: 10),
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: card,
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
-        tabBarTheme: const TabBarTheme(
+        tabBarTheme: const TabBarThemeData(
           labelColor: textPrimary,
           unselectedLabelColor: textTertiary,
           indicatorColor: accent,
