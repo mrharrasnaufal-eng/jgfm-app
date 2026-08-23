@@ -29,6 +29,8 @@ void main() {
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Color(0xFF1A1A1A),
+        systemNavigationBarIconBrightness: Brightness.light,
       ),
     );
     // Run migration check before app starts (async, non-blocking).

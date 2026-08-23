@@ -71,6 +71,7 @@ class _MainShellState extends State<MainShell> {
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
+          color: AppTheme.surface,
           border: Border(
             top: BorderSide(
               color: AppTheme.divider,
@@ -78,8 +79,8 @@ class _MainShellState extends State<MainShell> {
             ),
           ),
         ),
-        child: SizedBox(
-          height: 64,
+        child: SafeArea(
+          top: false,
           child: BottomNavigationBar(
             currentIndex: _currentIndex,
             onTap: _onTap,
