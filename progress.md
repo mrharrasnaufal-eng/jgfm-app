@@ -437,3 +437,74 @@ git remote set-url origin https://github.com/mrharrasnaufal-eng/jgfm-app.git
 - Cloudflare `BYPASS`, `no-store`.
 - MasterPanel `/api/config` HTTP 200.
 - Git clean, `HEAD == origin/main` pada `28f7ef6`.
+
+---
+
+## UPDATE 23 AGUSTUS 2026 — APK v1.0.7+8 PRELOAD + MULTI-PROVIDER SHUFFLE
+
+### Status
+- Commit `0df62be`, GitHub Actions run `32652087031` sukses (analyze, build, artifact OK).
+- ⚠️ Auto-deploy SSH gagal diam-diam (step success via `continue-on-error` tapi file server TIDAK berubah).
+- **Deploy manual via artifact berhasil**: APK dan version.json diunduh dari artifact GitHub dan disalin langsung.
+
+### Perubahan
+- `PreloadService` baru: fetch 6 provider acak paralel saat splash, deduplicate, shuffle, precache popup image + 12 thumbnail.
+- `main.dart`: preload berjalan paralel dengan sisa splash 5 detik; hasilnya diteruskan ke HomeScreen.
+- `home_screen.dart`: menerima `preloadedDramas`; jika ada langsung tampil tanpa shimmer/loading. Mode "Semua" sekarang fetch multi-provider paralel dan shuffle — setiap buka app drama berbeda-beda.
+- Pull-to-refresh juga shuffle ulang dari provider acak.
+
+### Verifikasi
+- APK publik v1.0.7 versionCode 8.
+- SHA-256 publik = server: `ea024f2d2ce20d6e9067893644e989ff5b2fcb8099158fdf7571de628f5450e0`.
+- Cloudflare `BYPASS`, `no-store`.
+- MasterPanel `/api/config` HTTP 200.
+- Git clean, `HEAD == origin/main` pada `0df62be`.
+
+### ⚠️ ISSUE: Auto-Deploy SSH
+- GitHub Actions step "Deploy to aaPanel" dan "Move files on server" dilaporkan sukses (karena `continue-on-error: true`).
+- Namun file server TIDAK berubah (timestamp/size/hash tetap v1.0.6+7).
+- Kemungkinan: SSH key di GitHub Secrets tidak lagi authorized, atau aaPanel firewall memblokir koneksi SSH dari runner GitHub baru.
+- Perlu investigasi: cek authorized_keys server, test SSH dari luar, atau perbaiki secret `AAPANEL_SSH_KEY`.
+- Sementara deploy manual via artifact (download zip + extract + copy) tetap bisa dilakukan.
+
+---
+
+## ⚠️ BACKUP POINT — v1.0.9+10 STABLE (23 Aug 2026, 21:30 UTC)
+
+### VERSI STABLE TERAKHIR SEBELUM REDESIGN UI/UX
+
+| Field | Nilai |
+|-------|-------|
+| **Versi** | 1.0.9+10 |
+| **Commit** | `632c860b52009381888d944a0404165fd2af1de5` |
+| **Commit msg** | feat: home provider configurable from admin panel |
+| **APK SHA-256** | `f8ab35104f90582b4be415896e1116726d42a7baa1e2024712d3d17138fc6117` |
+| **APK Size** | 60,506,548 bytes (~57.7 MB) |
+| **APK Timestamp** | 23 Aug 2026, 17:29 UTC |
+| **Backup Location** | `/www/wwwroot/jagatfilm.com/backup/apk-stable/app-release-v1.0.9+10-stable.apk` |
+| **Branch** | `main` |
+
+### Fitur yang sudah berjalan di v1.0.9:
+- ✅ Signed release APK (upload-keystore.jks)
+- ✅ Custom launcher icon (logo JagatFilm)
+- ✅ Splash screen 5 detik (gambar fullscreen dari remote config)
+- ✅ Remote config dari MasterPanel (popup, maintenance, announcement, branding, force update)
+- ✅ Multi-provider drama preload saat splash
+- ✅ Home provider configurable dari admin panel
+- ✅ Video player gesture-based (double-tap pause, skip, BoxFit.contain)
+- ✅ Update checker (version.json, no-cache)
+- ✅ GitHub Actions CI/CD (analyze, signed build, deploy)
+- ✅ Cloudflare BYPASS untuk APK
+
+### ⚠️ INSTRUKSI ROLLBACK:
+Jika redesign UI/UX (v2.0) bermasalah atau crash:
+1. Copy backup APK ke download: `cp /www/wwwroot/jagatfilm.com/backup/apk-stable/app-release-v1.0.9+10-stable.apk /www/wwwroot/jagatfilm.com/download/app-release.apk`
+2. Restore version.json: `cp /www/wwwroot/jagatfilm.com/backup/apk-stable/version-v1.0.9.json /www/wwwroot/jagatfilm.com/app/version.json`
+3. Git: `cd /www/wwwroot/jagatfilm.com/apk && git checkout 632c860` (atau buat branch baru dari sini)
+4. Purge Cloudflare cache
+
+### Catatan:
+- Mulai dari versi SETELAH ini (v2.0.0+11 dst), APK akan menjalani redesign total UI/UX terinspirasi DramaBox.
+- Blueprint redesign: `/www/wwwroot/jagatfilm.com/apk/BLUEPRINT-UIUX.md`
+- Jika redesign gagal di tahap mana pun, ROLLBACK ke v1.0.9 dan mulai ulang dari sini.
+- JANGAN hapus folder backup ini.

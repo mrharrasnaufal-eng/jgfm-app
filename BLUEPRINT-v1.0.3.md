@@ -147,6 +147,7 @@
 7. Push → Build → Deploy → Test di HP
 
 ## BACKLOG (v1.1.0+):
+- [ ] Notifikasi lokal dari panel admin (flutter_local_notifications + permission_handler, TANPA Firebase)
 - [ ] Analytics integration (custom endpoint, bukan Firebase)
 - [x] Admin panel + integrasi Remote Config APK — deployed v1.0.4+5
 - [ ] Google Sign-In via OAuth 2.0 Web Flow (tanpa Firebase, tanpa google_sign_in package)
@@ -154,6 +155,7 @@
 - [ ] Watch History & Favorit (localStorage)
 - [ ] Redis Cache (ganti file cache website)
 - [ ] Monetisasi (Adsterra/AdSense)
+- [ ] FCM Push Notification (Fase 2, butuh Firebase setup dari owner)
 
 ---
 
@@ -241,3 +243,265 @@
 - Versi: `1.0.5+6` → deployed, commit `0aa9eae`, Actions run `32646131587` sukses.
 - Versi: `1.0.6+7` → deployed, commit `28f7ef6`, Actions run `32647061863` sukses.
   - Fix: splash screen bersih tanpa logo overlay, tanpa spinner, murni `splash_image_url` fullscreen 5 detik.
+
+---
+
+## BLUEPRINT: NOTIFIKASI APK (DIRENCANAKAN)
+### Tanggal diskusi: 23 Agustus 2026
+### Status: PLANNING — belum dikerjakan
+
+### Konsep
+- User menerima notifikasi di notification bar HP tentang drama baru, event, dan promosi.
+- Admin kirim notifikasi dari MasterPanel; app menampilkannya sebagai local notification.
+- Mirip DramaBox/ReelShort: saat install pertama, minta izin notifikasi mengambang.
+
+### Fase 1 — Local Notification (TANPA Firebase, aman)
+
+#### Alur:
+1. Install/update pertama → dialog izin `POST_NOTIFICATIONS` (Android 13+).
+2. Panel admin (`masterpanel.jagatfilm.com`) buat notifikasi: judul, pesan, gambar, action, tanggal.
+3. Endpoint baru: `GET /api/notifications` → daftar notifikasi aktif.
+4. Setiap app dibuka → fetch daftar notifikasi → bandingkan dengan yang sudah ditampilkan (simpan ID di SharedPreferences).
+5. Notifikasi baru → tampilkan local notification di status bar via `flutter_local_notifications`.
+6. User tap → buka app ke halaman target (page:home/search/detail/update/login atau URL external).
+
+#### Dependency APK:
+- `flutter_local_notifications` — package stabil, tidak butuh Firebase/google-services.json.
+- `permission_handler` — untuk request POST_NOTIFICATIONS secara eksplisit.
+- TIDAK menambahkan Firebase SDK, FCM, atau google-services.json.
+
+#### Panel Admin (MasterPanel):
+- Halaman baru: Kelola Notifikasi
+- CRUD: judul, pesan, image_url, action (sama seperti popup: page:xxx atau external URL), tanggal publish, aktif/nonaktif.
+- Endpoint: `GET /api/notifications` (public, APK fetch), `POST/PUT/DELETE /api/notifications` (admin only).
+
+#### Data notifikasi:
+```json
+{
+  "id": "notif-001",
+  "title": "Drama Baru! 🎬",
+  "message": "Tonton serial terbaru minggu ini",
+  "image_url": "https://...",
+  "action": "page:home",
+  "published_at": "2026-08-23T10:00:00Z",
+  "active": true
+}
+```
+
+#### Batasan Fase 1:
+- Notifikasi hanya muncul saat user buka app (bukan real-time saat app tertutup).
+- Cukup untuk promosi berkala dan event.
+- Aman: jika endpoint gagal/offline, tidak ada notifikasi → tidak crash.
+
+### Fase 2 — FCM Real-Time Push (nanti, butuh owner)
+
+#### Prasyarat (owner harus setup):
+1. Buat Firebase project di console.firebase.google.com.
+2. Daftarkan app Android: `com.jagatfilm.jagatfilm`.
+3. Daftarkan SHA-1 fingerprint keystore.
+4. Download `google-services.json`.
+5. Encode base64 dan tambah sebagai GitHub Secret.
+6. Beri Client ID / Server Key ke Kiro.
+
+#### Fitur:
+- Push notification real-time saat app tertutup/background.
+- Panel admin trigger FCM ke semua device atau segment tertentu.
+- Topik/channel: drama baru, event, promo.
+
+#### ⚠️ Aturan:
+- JANGAN implementasi Fase 2 sebelum owner selesai setup Firebase.
+- JANGAN tambahkan `firebase_messaging` tanpa `google-services.json` → CRASH.
+- Fase 1 harus stabil dulu sebelum Fase 2.
+
+### Prioritas Eksekusi Fase 1:
+1. Tambah dependency `flutter_local_notifications` dan `permission_handler` ke pubspec.
+2. Buat permission request dialog saat pertama buka.
+3. Buat endpoint `/api/notifications` di MasterPanel.
+4. Buat halaman kelola notifikasi di dashboard MasterPanel.
+5. Buat service di APK: fetch, filter yang belum ditampilkan, trigger local notification.
+6. Action handler: tap notifikasi → navigasi ke halaman/URL.
+7. Bump versi, push, build, deploy, tes.
+
+### Pembagian Tugas:
+| Siapa | Tanggung Jawab |
+|-------|---------------|
+| Kiro (AI) | Semua kode APK + panel: permission, service, endpoint, UI dashboard, notifikasi lokal |
+| Owner | Fase 2: setup Firebase project, google-services.json, beri credentials ke Kiro |
+
+---
+
+## BLUEPRINT: ADMIN PANEL V2 + EKONOMI KOIN (DIRENCANAKAN)
+### Tanggal diskusi: 23 Agustus 2026
+### Status: PLANNING — belum dikerjakan
+
+### Keputusan Teknologi
+- **Ad Network:** Adsterra (utama, approve cepat). AdMob sebagai backup setelah traffic stabil.
+- **Database:** PostgreSQL lokal (port 5432, sudah tersedia di VPS). Gratis, nol latency, nol limit.
+- **Panel:** MasterPanel Next.js 14 di `masterpanel.jagatfilm.com` (sudah ada, akan di-redesign).
+- **Backend API:** endpoint baru di MasterPanel atau service terpisah di port lain jika perlu.
+
+### Model Bisnis
+- User nonton rewarded ads → dapat koin.
+- Revenue admin: $1 per 1000 tayangan iklan.
+- Revenue sharing ke user: $0.25–$0.50 per 1000 tayangan (dalam bentuk koin).
+- Koin bisa dicairkan ke Rupiah (e-wallet/transfer).
+- Admin untung selisih antara revenue iklan dan pembayaran ke user.
+
+### Struktur Panel Admin (MasterPanel V2)
+```
+├── 📊 Dashboard Overview
+│   ├── Total users, DAU, revenue hari ini
+│   ├── Koin beredar vs dicairkan
+│   └── Grafik ringkas
+├── 📢 Notifikasi
+│   ├── CRUD notifikasi (judul, pesan, gambar, action, jadwal)
+│   └── Riwayat notifikasi terkirim
+├── 🎬 Konten
+│   ├── Featured Drama (pilih manual untuk slider)
+│   ├── Banner Management
+│   └── Provider On/Off
+├── 💰 Ekonomi Koin
+│   ├── Konfigurasi Rate (koin per iklan, rate Rp per koin)
+│   ├── Rewarded Ads Settings (placement, frekuensi, cooldown)
+│   ├── Withdrawal Config (minimum, fee, max per hari)
+│   └── Withdrawal Requests (approve/reject, history)
+├── 📋 Tugas Harian
+│   ├── CRUD Misi (nonton X drama, login, share, invite, dll)
+│   ├── Reward per misi
+│   └── Reset schedule (harian/mingguan)
+├── 👥 User Management
+│   ├── Daftar user + saldo koin
+│   ├── Ban/unban
+│   ├── Manual adjustment koin
+│   └── Transaction history per user
+├── 📈 Analytics
+│   ├── DAU/MAU/retention
+│   ├── Top drama ditonton
+│   ├── Revenue iklan harian
+│   └── Koin diberikan vs dicairkan
+├── ⚙️ Pengaturan
+│   ├── Remote Config (branding, popup, maintenance — sudah ada)
+│   ├── App Version Control (sudah ada)
+│   ├── Adsterra Config (Zone ID, dll)
+│   └── VIP/Membership Tier (nanti)
+└── 🔔 Push Notification (Fase 2 FCM — nanti)
+```
+
+### Database Schema (PostgreSQL Lokal)
+```sql
+-- Users
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email VARCHAR(255) UNIQUE NOT NULL,
+  display_name VARCHAR(100),
+  password_hash VARCHAR(255),
+  provider VARCHAR(20) DEFAULT 'email',
+  coin_balance INTEGER DEFAULT 0,
+  is_vip BOOLEAN DEFAULT FALSE,
+  is_banned BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  last_login_at TIMESTAMPTZ
+);
+
+-- Coin Transactions
+CREATE TABLE coin_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id),
+  type VARCHAR(30) NOT NULL, -- 'ad_reward', 'mission', 'daily_login', 'withdrawal', 'admin_adjust'
+  amount INTEGER NOT NULL, -- positif = masuk, negatif = keluar
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Withdrawal Requests
+CREATE TABLE withdrawals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id),
+  amount_coins INTEGER NOT NULL,
+  amount_rupiah DECIMAL(12,2) NOT NULL,
+  method VARCHAR(30), -- 'dana', 'gopay', 'ovo', 'bank_transfer'
+  account_info TEXT,
+  status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'approved', 'rejected', 'paid'
+  admin_note TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  processed_at TIMESTAMPTZ
+);
+
+-- Daily Missions
+CREATE TABLE missions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title VARCHAR(200) NOT NULL,
+  description TEXT,
+  type VARCHAR(30) NOT NULL, -- 'watch_drama', 'watch_episodes', 'daily_login', 'share', 'invite'
+  target INTEGER DEFAULT 1, -- berapa kali harus dilakukan
+  reward_coins INTEGER NOT NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  reset_period VARCHAR(10) DEFAULT 'daily', -- 'daily', 'weekly', 'once'
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- User Mission Progress
+CREATE TABLE user_missions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id),
+  mission_id UUID REFERENCES missions(id),
+  progress INTEGER DEFAULT 0,
+  completed BOOLEAN DEFAULT FALSE,
+  completed_at TIMESTAMPTZ,
+  reset_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Notifications
+CREATE TABLE notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title VARCHAR(200) NOT NULL,
+  message TEXT,
+  image_url TEXT,
+  action VARCHAR(200), -- 'page:home', 'page:search', external URL
+  published_at TIMESTAMPTZ DEFAULT NOW(),
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Ad Config
+CREATE TABLE ad_config (
+  id SERIAL PRIMARY KEY,
+  network VARCHAR(30) DEFAULT 'adsterra',
+  zone_id VARCHAR(100),
+  placement VARCHAR(30), -- 'pre_episode', 'post_episode', 'reward_button'
+  coins_per_view INTEGER DEFAULT 1,
+  cooldown_seconds INTEGER DEFAULT 30,
+  max_daily_views INTEGER DEFAULT 50,
+  is_active BOOLEAN DEFAULT TRUE
+);
+
+-- Featured/Banner Content
+CREATE TABLE featured_content (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  type VARCHAR(20) NOT NULL, -- 'featured_drama', 'banner'
+  drama_id VARCHAR(100),
+  image_url TEXT,
+  action VARCHAR(200),
+  sort_order INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### Prioritas Eksekusi
+1. **Setup PostgreSQL** — buat database, user, dan schema.
+2. **Redesign MasterPanel** — sidebar profesional, layout responsif, halaman skeleton.
+3. **Notifikasi** — CRUD + endpoint (fitur pertama yang aktif penuh).
+4. **Content Management** — featured drama, banner.
+5. **User Management** — register/login real backend, saldo koin.
+6. **Rewarded Ads** — Adsterra integration config.
+7. **Tugas Harian** — CRUD misi.
+8. **Withdrawal** — request + approval.
+9. **Analytics Dashboard** — visualisasi data.
+
+### Aturan
+- Panel admin harus profesional: sidebar, dark mode, responsif.
+- Setiap halaman baru harus berfungsi independen — jika satu fitur belum siap, fitur lain tetap jalan.
+- Database migration harus incremental (bisa tambah tabel tanpa rusak yang sudah ada).
+- API endpoint harus dilindungi auth session (admin only) kecuali yang ditandai public.
+- APK fitur ekonomi koin TIDAK boleh dikerjakan sebelum backend dan panel siap.

@@ -8,15 +8,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'models/app_remote_config.dart';
-import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/main_shell.dart';
 import 'screens/maintenance_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/search_screen.dart';
 import 'services/auth_service.dart';
-import 'services/preload_service.dart';
 import 'services/remote_config_service.dart';
 import 'services/update_service.dart';
+import 'theme/app_theme.dart';
 import 'widgets/remote_config_popup.dart';
 
 void main() {
@@ -69,32 +69,7 @@ class JagatFilmApp extends StatelessWidget {
       child: MaterialApp(
         title: 'JagatFilm',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          brightness: Brightness.dark,
-          primaryColor: const Color(0xFF6C63FF),
-          scaffoldBackgroundColor: const Color(0xFF0F0F1A),
-          colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF6C63FF),
-            secondary: Color(0xFFFF6584),
-            surface: Color(0xFF1A1A2E),
-          ),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFF0F0F1A),
-            elevation: 0,
-            centerTitle: true,
-          ),
-          cardTheme: CardThemeData(
-            color: const Color(0xFF1A1A2E),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-            backgroundColor: Color(0xFF1A1A2E),
-            selectedItemColor: Color(0xFF6C63FF),
-            unselectedItemColor: Colors.grey,
-          ),
-        ),
+        theme: AppTheme.darkTheme,
         home: const MainScreen(),
       ),
     );
@@ -110,11 +85,8 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   final RemoteConfigService _remoteConfigService = RemoteConfigService();
-  final PreloadService _preloadService = PreloadService();
 
   AppRemoteConfig _config = const AppRemoteConfig.defaults();
-  PreloadResult? _preloadResult;
-  int _currentIndex = 0;
   bool _isLoadingConfig = true;
   bool _sessionPopupShown = false;
   bool _noticesRunning = false;
@@ -150,35 +122,13 @@ class _MainScreenState extends State<MainScreen> {
     setState(() => _config = loadedConfig);
 
     if (showSplash) {
-      // Keep the branded splash visible for five seconds from app start.
-      // Use remaining time to preload drama data and images in parallel.
-      const minimumSplashDuration = Duration(seconds: 5);
+      // Keep the branded splash visible for a minimum duration.
+      const minimumSplashDuration = Duration(seconds: 3);
       final elapsed = DateTime.now().difference(startedAt);
       final remaining = minimumSplashDuration - elapsed;
 
-      // Start preload in parallel with remaining splash time
-      final preloadFuture = _preloadService.preload(
-        config: loadedConfig,
-        context: mounted ? context : null,
-        homeProvider: loadedConfig.homeProvider,
-      );
-
       if (remaining > Duration.zero) {
-        // Wait for both: minimum splash duration AND preload (whichever is longer,
-        // but cap preload at splash duration so we never exceed 5s significantly)
-        final results = await Future.wait([
-          Future.delayed(remaining),
-          preloadFuture.timeout(remaining + const Duration(milliseconds: 500),
-              onTimeout: () => const PreloadResult.empty()),
-        ]);
-        if (mounted) _preloadResult = results[1] as PreloadResult;
-      } else {
-        // Splash already exceeded, just grab whatever preload finished
-        if (mounted) {
-          _preloadResult = await preloadFuture
-              .timeout(const Duration(seconds: 1),
-                  onTimeout: () => const PreloadResult.empty());
-        }
+        await Future.delayed(remaining);
       }
     }
 
@@ -240,13 +190,16 @@ class _MainScreenState extends State<MainScreen> {
 
     switch (action) {
       case 'page:home':
-        setState(() => _currentIndex = 0);
+        // Already on home after splash
         return;
       case 'page:search':
-        setState(() => _currentIndex = 1);
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SearchScreen()),
+        );
         return;
       case 'page:profile':
-        _onBottomNavigationTap(2);
+        // Profile is handled by MainShell bottom nav
         return;
       case 'page:update':
         await Navigator.push(
@@ -295,20 +248,6 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  void _onBottomNavigationTap(int index) {
-    if (index == 2) {
-      final auth = Provider.of<AuthService>(context, listen: false);
-      if (!auth.isLoggedIn) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
-        return;
-      }
-    }
-    setState(() => _currentIndex = index);
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoadingConfig) {
@@ -322,40 +261,9 @@ class _MainScreenState extends State<MainScreen> {
       );
     }
 
-    final screens = [
-      HomeScreen(
-        logoUrl: _config.logoUrl,
-        announcement: _config.announcement,
-        homeProvider: _config.homeProvider,
-        preloadedDramas: _preloadResult,
-      ),
-      const SearchScreen(),
-      const ProfileScreen(),
-    ];
-
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: screens,
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: _onBottomNavigationTap,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.search_rounded),
-            label: 'Cari',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_rounded),
-            label: 'Profil',
-          ),
-        ],
-      ),
+    return MainShell(
+      logoUrl: _config.logoUrl,
+      announcement: _config.announcement,
     );
   }
 }
