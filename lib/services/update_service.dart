@@ -7,26 +7,76 @@ import 'package:url_launcher/url_launcher.dart';
 class UpdateService {
   static const String _versionUrl = 'https://jagatfilm.com/app/version.json';
 
-  /// Check for app update and show dialog if available
-  /// Call this from initState with addPostFrameCallback
-  static Future<void> checkForUpdate(BuildContext context) async {
+  /// Get update info from server. Returns null if failed.
+  static Future<Map<String, dynamic>?> getUpdateInfo() async {
     try {
-      // Get current app version
-      final packageInfo = await PackageInfo.fromPlatform();
-      final currentVersionCode = int.tryParse(packageInfo.buildNumber) ?? 1;
-
-      // Fetch remote version info
       final response = await http
           .get(Uri.parse(_versionUrl))
           .timeout(const Duration(seconds: 10));
 
-      if (response.statusCode != 200) return;
+      if (response.statusCode != 200) return null;
 
       final body = response.body;
-      if (body.isEmpty) return;
+      if (body.isEmpty) return null;
 
       final json = jsonDecode(body);
-      if (json is! Map<String, dynamic>) return;
+      if (json is! Map<String, dynamic>) return null;
+
+      return json;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Open download URL in browser
+  static Future<void> openDownloadUrl(BuildContext context, String apkUrl) async {
+    if (apkUrl.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('URL download tidak tersedia'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    final uri = Uri.tryParse(apkUrl);
+    if (uri == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('URL download tidak valid'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal membuka browser'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Check for app update and show dialog if available (auto-check on app open)
+  static Future<void> checkForUpdate(BuildContext context) async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      final currentVersionCode = int.tryParse(packageInfo.buildNumber) ?? 1;
+
+      final json = await getUpdateInfo();
+      if (json == null) return;
 
       final remoteVersionCode = json['versionCode'] as int? ?? 0;
       final remoteVersion = json['version'] as String? ?? '';
@@ -34,10 +84,8 @@ class UpdateService {
       final changelog = json['changelog'] as String? ?? '';
       final forceUpdate = json['force_update'] as bool? ?? false;
 
-      // Compare versions
       if (remoteVersionCode <= currentVersionCode) return;
 
-      // Update available - show dialog
       if (!context.mounted) return;
 
       _showUpdateDialog(
@@ -48,7 +96,7 @@ class UpdateService {
         forceUpdate: forceUpdate,
       );
     } catch (_) {
-      // Silently fail - don't crash the app
+      // Silently fail
     }
   }
 
@@ -81,7 +129,6 @@ class UpdateService {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Version info
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -99,43 +146,34 @@ class UpdateService {
                 ),
               ),
               const SizedBox(height: 14),
-
-              // Changelog
               if (changelog.isNotEmpty) ...[
-                Text(
-                  'Perubahan:',
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                Text('Perubahan:',
+                    style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
-                Text(
-                  changelog,
-                  style: TextStyle(color: Colors.grey[300], fontSize: 13),
-                ),
+                Text(changelog,
+                    style: TextStyle(color: Colors.grey[300], fontSize: 13)),
                 const SizedBox(height: 14),
               ],
-
-              // Instructions
               Text(
-                'Silakan unduh dan install APK terbaru untuk mendapatkan fitur dan perbaikan terbaru.',
+                'Unduh dan install APK terbaru.',
                 style: TextStyle(color: Colors.grey[400], fontSize: 12),
               ),
             ],
           ),
           actions: [
-            // "Nanti" button - only if not force update
             if (!forceUpdate)
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child:
-                    Text('Nanti', style: TextStyle(color: Colors.grey[500])),
+                child: Text('Nanti', style: TextStyle(color: Colors.grey[500])),
               ),
-            // "Update Sekarang" button
             FilledButton.icon(
-              onPressed: () => _openUpdateUrl(ctx, apkUrl),
+              onPressed: () {
+                Navigator.pop(ctx);
+                openDownloadUrl(context, apkUrl);
+              },
               icon: const Icon(Icons.download_rounded, size: 18),
               label: const Text('Update Sekarang'),
               style: FilledButton.styleFrom(
@@ -146,46 +184,5 @@ class UpdateService {
         ),
       ),
     );
-  }
-
-  static Future<void> _openUpdateUrl(
-      BuildContext context, String apkUrl) async {
-    if (apkUrl.isEmpty) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('URL download tidak tersedia'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return;
-    }
-
-    final uri = Uri.tryParse(apkUrl);
-    if (uri == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('URL download tidak valid'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return;
-    }
-
-    try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal membuka browser untuk download'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
   }
 }

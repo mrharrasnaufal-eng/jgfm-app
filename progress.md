@@ -110,16 +110,17 @@ Package `google_sign_in` register native plugin saat app start. Tanpa `google-se
 
 ---
 
-## FITUR VIDEO PLAYER:
-- **Portrait fullscreen** — Aspect ratio 9:16 (video vertikal/short drama)
-- **Immersive mode** — Status bar tersembunyi
-- **Swipe down** → next episode
-- **Swipe up** → prev episode
-- **HD/SD toggle**
-- **Debug panel** — Klik icon bug untuk lihat URL
-- **HTTP headers** — User-Agent + Referer
-- **URL handling:** .mp4 langsung, .m3u8 lewat proxy
-- **Error handling** — Retry, switch quality, next episode
+## FITUR VIDEO PLAYER (TikTok-style):
+- **100% fullscreen portrait** — Video memenuhi seluruh layar, tidak ada area lain
+- **Immersive mode** — Status bar & navigation bar tersembunyi
+- **Tap layar** → show/hide overlay (judul, controls)
+- **Swipe bawah** → next episode (langsung ganti, tetap fullscreen)
+- **Swipe atas** → prev episode
+- **Tombol prev/next** di overlay bawah
+- **HD/SD toggle** di overlay atas
+- **Direct URL** — ExoPlayer native HLS/MP4, TANPA proxy (CORS bukan masalah di mobile)
+- **Error handling** — Retry, switch quality, next episode, geser untuk skip
+- **Auto-hide overlay** — Hilang setelah 3 detik
 
 ---
 
@@ -159,6 +160,7 @@ Package `google_sign_in` register native plugin saat app start. Tanpa `google-se
 | 15 | 7ff73c8 | fix gradle kotlin dsl deprecation errors |
 | 16 | 9eaa32f → 1eec02c | fix app crash: error handling, lazy google init, internet permission |
 | 17 | f1084a4 | fix crash: remove google_sign_in, fix assets, fix namespace |
+| 18 | d6379e1 | fix: fullscreen tiktok-style player, direct video URL, episode count |
 
 ---
 
@@ -179,6 +181,10 @@ Package `google_sign_in` register native plugin saat app start. Tanpa `google-se
 | 11 | APP CRASH saat dibuka | google_sign_in tanpa config | Hapus google_sign_in |
 | 12 | APP CRASH asset | Empty assets folder declared | Hapus assets dari pubspec |
 | 13 | Namespace mismatch | Package name tidak konsisten | Fix ke com.jagatfilm.jagatfilm |
+| 14 | Video tidak fullscreen | Layout split video+grid | TikTok-style: video 100% layar, overlay controls |
+| 15 | Swipe tidak berfungsi | GestureDetector hanya di area video kecil | GestureDetector di seluruh layar |
+| 16 | Video Source error | URL diproxy lewat /api/hls (browser-only) | Pakai URL langsung (ExoPlayer native HLS/MP4) |
+| 17 | Episode selalu 20 | Default fallback 20 jika totalEpisodes=0 | Default 80 (short drama umumnya 60-100 ep) |
 
 ---
 
@@ -246,10 +252,11 @@ git remote set-url origin https://github.com/mrharrasnaufal-eng/jgfm-app.git
 1. **Keystore** di `/root/android-keystore/upload-keystore.jks` — JANGAN HAPUS
 2. **SSH key** di `/root/.ssh/id_rsa` — untuk auto deploy
 3. **Google Sign In** dicabut sementara — butuh Firebase setup untuk kembali
-4. **Video streaming** bergantung proxy jagatfilm.com — website harus online
+4. **Video streaming** — pakai URL langsung (bukan proxy). Proxy `/api/hls` hanya untuk browser (CORS).
 5. **Auth backend (port 3001)** tidak jalan — app pakai local auth
 6. **Package name** = `com.jagatfilm.jagatfilm` — jangan ubah
 7. **GitHub token** — untuk push dari server (jangan simpan di file repo)
+8. **Video error masih bisa muncul** — tergantung provider. Beberapa provider blokir akses dari IP non-browser. User bisa swipe ke episode lain atau coba kualitas berbeda.
 
 ---
 
