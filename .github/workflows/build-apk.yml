@@ -31,81 +31,79 @@ jobs:
           rm -rf android
           flutter create --platforms=android --org com.jagatfilm --project-name jagatfilm .
 
-      - name: Write signed Android Gradle config
-        run: |
-          cat > android/app/build.gradle.kts << 'EOF'
-          @file:Suppress("DEPRECATION")
-
-          import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
-          plugins {
-              id("com.android.application")
-              id("kotlin-android")
-              id("dev.flutter.flutter-gradle-plugin")
-          }
-
-          kotlin {
-              compilerOptions {
-                  jvmTarget.set(JvmTarget.JVM_11)
-              }
-          }
-
-          android {
-              namespace = "com.jagatfilm.jagatfilm"
-              compileSdk = flutter.compileSdkVersion
-              ndkVersion = flutter.ndkVersion
-
-              compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_11
-                  targetCompatibility = JavaVersion.VERSION_11
-              }
-
-              defaultConfig {
-                  applicationId = "com.jagatfilm.jagatfilm"
-                  minSdk = 23
-                  targetSdk = flutter.targetSdkVersion
-                  versionCode = flutter.versionCode
-                  versionName = flutter.versionName
-              }
-
-              signingConfigs {
-                  create("release") {
-                      storeFile = file("upload-keystore.jks")
-                      storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-                      keyAlias = System.getenv("ANDROID_KEY_ALIAS")
-                      keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
-                  }
-              }
-
-              buildTypes {
-                  release {
-                      signingConfig = signingConfigs.getByName("release")
-                      isMinifyEnabled = false
-                      isShrinkResources = false
-                  }
-              }
-          }
-
-          flutter {
-              source = "../.."
-          }
-          EOF
-
-      - name: Decode keystore
-        run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
-
       - name: Ensure internet permission
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          # Add internet permission if not present
           if ! grep -q "android.permission.INTERNET" "$MANIFEST"; then
             sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.INTERNET"/>' "$MANIFEST"
           fi
-          # Add usesCleartextTraffic for HTTP URLs
           if ! grep -q "usesCleartextTraffic" "$MANIFEST"; then
             sed -i 's/<application/<application android:usesCleartextTraffic="true"/' "$MANIFEST"
           fi
+
+      - name: Setup signing
+        run: |
+          # Decode keystore
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+
+          # Create key.properties
+          cat > android/key.properties << EOF
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=../app/upload-keystore.jks
+          EOF
+
+          # Inject signing into build.gradle.kts using Python (reliable)
+          python3 << 'PYEOF'
+          import os
+
+          build_file = "android/app/build.gradle.kts"
+          with open(build_file, "r") as f:
+              content = f.read()
+
+          # Add key.properties reading and signingConfigs
+          signing_block = '''
+          import java.util.Properties
+          import java.io.FileInputStream
+
+          val keystoreProperties = Properties()
+          val keystoreFile = rootProject.file("key.properties")
+          if (keystoreFile.exists()) {
+              keystoreProperties.load(FileInputStream(keystoreFile))
+          }
+
+          '''
+
+          # Only add if not already present
+          if "keystoreProperties" not in content:
+              content = signing_block + content
+
+          # Add signingConfigs before buildTypes
+          if "signingConfigs" not in content:
+              signing_config = '''
+              signingConfigs {
+                  create("release") {
+                      keyAlias = keystoreProperties["keyAlias"] as String? ?: ""
+                      keyPassword = keystoreProperties["keyPassword"] as String? ?: ""
+                      storeFile = file(keystoreProperties["storeFile"] as String? ?: "")
+                      storePassword = keystoreProperties["storePassword"] as String? ?: ""
+                  }
+              }
+          '''
+              content = content.replace("buildTypes {", signing_config + "\n    buildTypes {")
+
+          # Replace debug signing with release
+          content = content.replace(
+              'signingConfig = signingConfigs.getByName("debug")',
+              'signingConfig = signingConfigs.getByName("release")'
+          )
+
+          with open(build_file, "w") as f:
+              f.write(content)
+
+          print("✅ Signing config injected")
+          PYEOF
 
       - name: Install dependencies
         run: flutter pub get
@@ -114,10 +112,6 @@ jobs:
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Build Release APK
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: flutter build apk --release
 
       - name: Prepare deploy

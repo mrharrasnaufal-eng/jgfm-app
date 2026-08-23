@@ -35,7 +35,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _scrollController.addListener(_onScroll);
     // Check for app update after frame is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      UpdateService.checkForUpdate(context);
+      try {
+        UpdateService.checkForUpdate(context);
+      } catch (_) {}
     });
   }
 

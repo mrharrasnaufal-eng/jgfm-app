@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import '../services/auth_service.dart';
 import '../services/update_service.dart';
 import 'login_screen.dart';
@@ -271,9 +270,9 @@ class _UpdateScreenState extends State<UpdateScreen> {
     });
 
     try {
-      final packageInfo = await PackageInfo.fromPlatform();
-      _currentVersion = packageInfo.version;
-      _currentCode = packageInfo.buildNumber;
+      final appInfo = await UpdateService.getAppVersion();
+      _currentVersion = appInfo['version'] ?? '?';
+      _currentCode = appInfo['code'] ?? '0';
 
       final result = await UpdateService.getUpdateInfo();
 

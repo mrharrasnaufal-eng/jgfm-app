@@ -7,6 +7,19 @@ import 'package:url_launcher/url_launcher.dart';
 class UpdateService {
   static const String _versionUrl = 'https://jagatfilm.com/app/version.json';
 
+  /// Get current app version safely
+  static Future<Map<String, String>> getAppVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      return {
+        'version': packageInfo.version,
+        'code': packageInfo.buildNumber,
+      };
+    } catch (_) {
+      return {'version': '?', 'code': '0'};
+    }
+  }
+
   /// Get update info from server. Returns null if failed.
   static Future<Map<String, dynamic>?> getUpdateInfo() async {
     try {
@@ -71,9 +84,12 @@ class UpdateService {
 
   /// Check for app update and show dialog if available (auto-check on app open)
   static Future<void> checkForUpdate(BuildContext context) async {
+    // Delay sedikit agar app fully loaded dulu
+    await Future.delayed(const Duration(seconds: 2));
+    
     try {
-      final packageInfo = await PackageInfo.fromPlatform();
-      final currentVersionCode = int.tryParse(packageInfo.buildNumber) ?? 1;
+      final appInfo = await getAppVersion();
+      final currentVersionCode = int.tryParse(appInfo['code'] ?? '0') ?? 0;
 
       final json = await getUpdateInfo();
       if (json == null) return;
