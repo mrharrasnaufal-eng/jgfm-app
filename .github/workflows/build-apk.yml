@@ -31,27 +31,9 @@ jobs:
           rm -rf android
           flutter create --platforms=android --org com.jagatfilm .
 
-      - name: Restore Android config
+      - name: Write signed Android Gradle config
         run: |
-          # Ensure internet permission
-          if ! grep -q "android.permission.INTERNET" android/app/src/main/AndroidManifest.xml; then
-            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml
-          fi
-
-      - name: Setup signing and build.gradle.kts
-        id: signing
-        env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "SIGNING_AVAILABLE=true" >> $GITHUB_OUTPUT
-            echo "✅ Signing key found"
-
-            # Decode keystore
-            echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
-
-            # Overwrite build.gradle.kts with signing config
-            cat > android/app/build.gradle.kts << 'GRADLEOF'
+          cat > android/app/build.gradle.kts << 'EOF'
           plugins {
               id("com.android.application")
               id("kotlin-android")
@@ -59,7 +41,7 @@ jobs:
           }
 
           android {
-              namespace = "com.jagatfilm.app"
+              namespace = "com.jagatfilm"
               compileSdk = flutter.compileSdkVersion
               ndkVersion = flutter.ndkVersion
 
@@ -72,21 +54,21 @@ jobs:
                   jvmTarget = JavaVersion.VERSION_11.toString()
               }
 
-              signingConfigs {
-                  create("release") {
-                      storeFile = file("upload-keystore.jks")
-                      storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: ""
-                      keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: ""
-                      keyPassword = System.getenv("ANDROID_KEY_PASSWORD") ?: ""
-                  }
-              }
-
               defaultConfig {
-                  applicationId = "com.jagatfilm.app"
-                  minSdk = 21
+                  applicationId = "com.jagatfilm"
+                  minSdk = 23
                   targetSdk = flutter.targetSdkVersion
                   versionCode = flutter.versionCode
                   versionName = flutter.versionName
+              }
+
+              signingConfigs {
+                  create("release") {
+                      storeFile = file("upload-keystore.jks")
+                      storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                      keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                      keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+                  }
               }
 
               buildTypes {
@@ -101,12 +83,16 @@ jobs:
           flutter {
               source = "../.."
           }
-          GRADLEOF
+          EOF
 
-            echo "✅ build.gradle.kts written with release signing"
-          else
-            echo "SIGNING_AVAILABLE=false" >> $GITHUB_OUTPUT
-            echo "⚠️ No signing key - will build debug"
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+
+      - name: Ensure internet permission
+        run: |
+          if ! grep -q "android.permission.INTERNET" android/app/src/main/AndroidManifest.xml; then
+            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml
           fi
 
       - name: Install dependencies
@@ -116,34 +102,22 @@ jobs:
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Build Release APK
-        if: steps.signing.outputs.SIGNING_AVAILABLE == 'true'
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: flutter build apk --release
 
-      - name: Build Debug APK (fallback)
-        if: steps.signing.outputs.SIGNING_AVAILABLE != 'true'
-        run: flutter build apk --debug
-
       - name: Prepare deploy
         run: |
           mkdir -p deploy
-
-          if [ "${{ steps.signing.outputs.SIGNING_AVAILABLE }}" == "true" ]; then
-            cp build/app/outputs/flutter-apk/app-release.apk deploy/app-release.apk
-            echo "📦 Signed Release APK"
-          else
-            cp build/app/outputs/flutter-apk/app-debug.apk deploy/app-release.apk
-            echo "⚠️ Debug APK"
-          fi
+          cp build/app/outputs/flutter-apk/app-release.apk deploy/app-release.apk
 
           VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | tr -d ' ')
           VERSION_NAME=$(echo "$VERSION" | cut -d'+' -f1)
           VERSION_CODE=$(echo "$VERSION" | cut -d'+' -f2)
 
-          cat > deploy/version.json << EOF
+          cat > deploy/version.json << VJEOF
           {
             "version": "$VERSION_NAME",
             "versionCode": $VERSION_CODE,
@@ -151,7 +125,7 @@ jobs:
             "changelog": "Update aplikasi terbaru.",
             "force_update": false
           }
-          EOF
+          VJEOF
 
           echo "✅ Version: $VERSION_NAME+$VERSION_CODE"
           ls -la deploy/
