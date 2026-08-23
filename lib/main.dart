@@ -160,6 +160,7 @@ class _MainScreenState extends State<MainScreen> {
       final preloadFuture = _preloadService.preload(
         config: loadedConfig,
         context: mounted ? context : null,
+        homeProvider: loadedConfig.homeProvider,
       );
 
       if (remaining > Duration.zero) {
@@ -325,6 +326,7 @@ class _MainScreenState extends State<MainScreen> {
       HomeScreen(
         logoUrl: _config.logoUrl,
         announcement: _config.announcement,
+        homeProvider: _config.homeProvider,
         preloadedDramas: _preloadResult,
       ),
       const SearchScreen(),

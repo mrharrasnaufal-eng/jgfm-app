@@ -11,12 +11,14 @@ import 'profile_screen.dart';
 class HomeScreen extends StatefulWidget {
   final String logoUrl;
   final String announcement;
+  final String homeProvider;
   final PreloadResult? preloadedDramas;
 
   const HomeScreen({
     super.key,
     this.logoUrl = '',
     this.announcement = '',
+    this.homeProvider = 'shortmax',
     this.preloadedDramas,
   });
 
@@ -85,10 +87,10 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      // Default "all" = shortmax (tanpa watermark, bahasa Indonesia)
+      // Default "all" = admin-configured home provider
       // User bisa pilih provider lain lewat filter chip
       final providerParam =
-          _selectedProvider == 'all' ? 'shortmax' : _selectedProvider;
+          _selectedProvider == 'all' ? widget.homeProvider : _selectedProvider;
 
       final response = await _api.getDramas(
         page: 1,
@@ -119,7 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final providerParam =
-          _selectedProvider == 'all' ? 'shortmax' : _selectedProvider;
+          _selectedProvider == 'all' ? widget.homeProvider : _selectedProvider;
 
       final response = await _api.getDramas(
         page: _currentPage + 1,

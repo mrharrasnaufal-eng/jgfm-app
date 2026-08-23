@@ -16,6 +16,7 @@ class AppRemoteConfig {
   final String announcement;
   final bool forceUpdate;
   final String minimumVersion;
+  final String homeProvider;
 
   const AppRemoteConfig({
     required this.logoUrl,
@@ -32,6 +33,7 @@ class AppRemoteConfig {
     required this.announcement,
     required this.forceUpdate,
     required this.minimumVersion,
+    required this.homeProvider,
   });
 
   const AppRemoteConfig.defaults()
@@ -48,7 +50,8 @@ class AppRemoteConfig {
         maintenanceMessage = defaultMaintenanceMessage,
         announcement = '',
         forceUpdate = false,
-        minimumVersion = '1.0.0';
+        minimumVersion = '1.0.0',
+        homeProvider = 'shortmax';
 
   factory AppRemoteConfig.fromJson(Map<String, dynamic> json) {
     final popupAction = _popupAction(json['popup_action_url']);
@@ -74,6 +77,7 @@ class AppRemoteConfig {
       announcement: _text(json['announcement'], maxLength: 500),
       forceUpdate: _boolValue(json['force_update']),
       minimumVersion: _version(json['min_version']),
+      homeProvider: _provider(json['home_provider']),
     );
   }
 
@@ -152,5 +156,16 @@ class AppRemoteConfig {
       return '1.0.0';
     }
     return normalized;
+  }
+
+  static String _provider(dynamic value) {
+    if (value is! String) return 'shortmax';
+    final normalized = value.trim().toLowerCase();
+    const allowed = {
+      'shortmax', 'cashdrama', 'netshort', 'rapidtv', 'bilitv',
+      'flickreels', 'melolo', 'wetv', 'dramabite', 'reelshort',
+      'microdrama', 'dotdrama', 'dramabox', 'starshort',
+    };
+    return allowed.contains(normalized) ? normalized : 'shortmax';
   }
 }

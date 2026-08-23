@@ -40,16 +40,17 @@ class PreloadService {
 
   final ApiService _api = ApiService();
 
-  /// Fetch dramas from shortmax (default provider), and precache
+  /// Fetch dramas from the configured home provider, and precache
   /// popup + thumbnail images. Designed to run within the 5-second splash window.
   Future<PreloadResult> preload({
     required AppRemoteConfig config,
     BuildContext? context,
+    String homeProvider = 'shortmax',
   }) async {
     try {
-      // Fetch shortmax as the default home provider
+      // Fetch from admin-configured home provider
       final response = await _api
-          .getDramas(page: 1, limit: 30, provider: 'shortmax')
+          .getDramas(page: 1, limit: 30, provider: homeProvider)
           .timeout(const Duration(seconds: 4));
 
       final dramas = response.dramas;
