@@ -49,7 +49,43 @@
 
 ---
 
-## ALUR DEPLOY (OTOMATIS):
+## 🚨 INSTRUKSI WAJIB — TIDAK BOLEH DILANGGAR:
+
+### APP TIDAK BOLEH CRASH/MOGOK!
+
+Owner (mrharrasnaufal) **sangat keberatan** dengan app yang crash. Setiap perubahan HARUS:
+
+1. **JANGAN overwrite `build.gradle.kts` sepenuhnya** — Flutter generate file ini dengan plugin registration yang vital. Hanya INJECT signing config, jangan replace seluruh isi.
+
+2. **JANGAN tambah dependency yang butuh native config tanpa config-nya** — Contoh: `google_sign_in` butuh `google-services.json`. Tanpa file itu = crash saat app dibuka. Kalau config belum siap, JANGAN tambahkan dependency.
+
+3. **Semua code yang jalan saat app start HARUS di-wrap try-catch** — `main.dart`, `initState`, `loadUser`, `checkForUpdate` — semua harus safe. Error = log, BUKAN crash.
+
+4. **JANGAN declare assets di pubspec.yaml jika folder kosong** — Flutter crash kalau asset tidak ditemukan.
+
+5. **Test mental checklist SEBELUM push:**
+   - [ ] Apakah ada import baru yang butuh native plugin tanpa config?
+   - [ ] Apakah ada code yang bisa throw exception saat app start?
+   - [ ] Apakah workflow mengubah file yang Flutter generate (selain inject)?
+   - [ ] Apakah namespace/package name konsisten?
+   - [ ] Apakah semua dependency punya versi yang kompatibel?
+
+6. **Jika ragu, JANGAN push** — tanya dulu, jangan buang waktu owner.
+
+### PENYEBAB CRASH YANG SUDAH TERJADI (JANGAN TERULANG):
+- `google_sign_in` tanpa `google-services.json` → CRASH
+- Overwrite `build.gradle.kts` → hilangkan plugin resolution → CRASH
+- Empty assets folder declared di pubspec → CRASH
+- Namespace mismatch → CRASH
+- `package_info_plus` dipanggil tanpa try-catch → potential CRASH
+
+### ATURAN WORKFLOW:
+- `flutter create` generate android/ → **JANGAN hapus/replace file apapun kecuali inject signing**
+- Signing: buat `key.properties` + inject via Python (append, bukan replace)
+- Internet permission: tambah via sed JIKA belum ada
+- Itu saja. Jangan sentuh yang lain.
+
+---
 ```
 Push ke main → GitHub Actions → Build signed APK → SCP ke aaPanel → version.json auto update → App cek update saat dibuka
 ```
