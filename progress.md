@@ -369,7 +369,7 @@ git remote set-url origin https://github.com/mrharrasnaufal-eng/jgfm-app.git
 ## UPDATE 23 AGUSTUS 2026 — APK v1.0.4+5 REMOTE CONFIG (LOCAL)
 
 ### Status
-- Implementasi source selesai lokal; belum commit, push, build CI, atau deploy APK.
+- Implementasi source, commit, GitHub Actions analyze/build, dan deploy APK v1.0.4+5 selesai.
 - MasterPanel dan kedua endpoint config online (HTTP 200).
 
 ### Fitur yang Ditambahkan
@@ -385,8 +385,35 @@ git remote set-url origin https://github.com/mrharrasnaufal-eng/jgfm-app.git
 - Unit test baru: `test/remote_config_test.dart`.
 - Mencakup parsing/sanitasi, clamp durasi, endpoint fallback, defaults saat gagal, dan version comparison.
 - `git diff --check`, import resolution, delimiter/whitespace, schema endpoint, serta audit independen lulus.
-- Flutter/Dart SDK tidak tersedia di VPS, sehingga format/analyze/test/build final wajib melalui GitHub Actions setelah owner meminta commit/push.
+- GitHub Actions run `32644795604` berhasil menjalankan analyze, signed release build, dan deploy v1.0.4+5.
 
 ### File Utama
 - Baru: `app_remote_config.dart`, `remote_config_service.dart`, `maintenance_screen.dart`, `remote_config_popup.dart`, `remote_config_test.dart`.
 - Diubah: `main.dart`, `home_screen.dart`, `update_service.dart`, `pubspec.yaml` (`1.0.4+5`).
+
+---
+
+## UPDATE 23 AGUSTUS 2026 — APK v1.0.5+6 LAUNCHER ICON + SPLASH
+
+### Status
+- Implementasi lokal selesai; belum commit, push, build CI, atau deploy.
+
+### Launcher Icon
+- Logo MasterPanel PNG RGBA 1024x1024 digunakan sebagai sumber.
+- Legacy icon tersedia untuk mdpi, hdpi, xhdpi, xxhdpi, dan xxxhdpi.
+- Adaptive foreground tersedia untuk semua density dengan padding aman; background `#081633`.
+- Canonical assets disimpan di `branding/launcher_icon/`, termasuk artwork Play Store 512px.
+- Workflow menerapkan ikon setelah `flutter create` agar resource custom tidak ditimpa default Flutter.
+
+### Splash 5 Detik
+- `minimumSplashDuration` di `main.dart` diubah menjadi `Duration(seconds: 5)`.
+- Remote Config timeout diubah menjadi 2 detik per endpoint; primary dan fallback maksimal sekitar 4 detik agar selesai sebelum splash hilang.
+- Setelah 5 detik, aplikasi melanjutkan ke maintenance gate atau halaman utama.
+- Versi lokal dinaikkan menjadi `1.0.5+6`.
+
+### Validasi Lokal
+- PNG dimensions dan format seluruh density sesuai.
+- Adaptive XML dan color XML valid.
+- Canonical assets dan mirror Android byte-identical.
+- Simulasi copy workflow berhasil mengganti ikon default.
+- Workflow YAML valid.

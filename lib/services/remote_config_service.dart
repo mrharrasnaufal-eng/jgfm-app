@@ -18,7 +18,7 @@ class RemoteConfigService {
   RemoteConfigService({
     http.Client? client,
     List<Uri>? endpoints,
-    this.requestTimeout = const Duration(seconds: 5),
+    this.requestTimeout = const Duration(seconds: 2),
   })  : _client = client ?? http.Client(),
         _ownsClient = client == null,
         _endpoints = List.unmodifiable(endpoints ?? defaultEndpoints);

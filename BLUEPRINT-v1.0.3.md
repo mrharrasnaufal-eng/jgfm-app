@@ -110,7 +110,7 @@
 - TIDAK muncul berkali-kali selama 1 sesi
 - Action: navigasi ke halaman dalam app (page:xxx) BUKAN buka URL external
 - Kalau action = "external" → baru buka browser
-- Integrasi APK: ✅ diimplementasikan lokal untuk v1.0.4+5; pending commit, CI build, deploy, dan tes perangkat.
+- Integrasi APK: ✅ deployed pada v1.0.4+5 (commit `f237ba1`, CI analyze/build/deploy sukses).
 - Endpoint utama: `https://masterpanel.jagatfilm.com/api/config`.
 - Endpoint fallback: `https://www.jagatfilm.com/app/config.json`.
 - Jika kedua endpoint gagal/JSON rusak: APK memakai default aman (maintenance, popup, dan force update mati).
@@ -148,7 +148,7 @@
 
 ## BACKLOG (v1.1.0+):
 - [ ] Analytics integration (custom endpoint, bukan Firebase)
-- [~] Admin panel deployed + integrasi Remote Config APK v1.0.4+5 sudah lokal; pending CI/deploy
+- [x] Admin panel + integrasi Remote Config APK — deployed v1.0.4+5
 - [ ] Google Sign-In via OAuth 2.0 Web Flow (tanpa Firebase, tanpa google_sign_in package)
 - [ ] PWA & Offline Support
 - [ ] Watch History & Favorit (localStorage)
@@ -180,7 +180,7 @@
 ---
 
 ## UPDATE v1.0.4+5 — MASTERPANEL REMOTE CONFIG
-### Status: IMPLEMENTED LOCALLY ✅ — BELUM COMMIT/DEPLOY
+### Status: DEPLOYED ✅ — v1.0.4+5, commit `f237ba1`
 ### Tanggal: 23 Agustus 2026
 
 ### Implementasi APK
@@ -208,10 +208,35 @@
 - Delimiter/trailing-whitespace check: lulus pada semua file yang disentuh.
 - Audit independen: `NO_BLOCKING_ISSUES`.
 - Test ditambahkan untuk parsing/sanitasi, fallback endpoint, default aman, dan semantic version comparison.
-- ⚠️ Flutter/Dart SDK dan Docker/Podman tidak tersedia di VPS; `dart format`, `flutter analyze`, `flutter test`, dan build harus dijalankan GitHub Actions setelah commit/push.
+- GitHub Actions run `32644795604`: analyze, signed release build, dan deploy sukses.
+- APK publik v1.0.4+5 terverifikasi identik dengan file server dan Cloudflare `BYPASS`.
 
-### Langkah Rilis Berikutnya
-1. Review diff final.
-2. Commit source secara eksplisit setelah persetujuan owner.
-3. Push `main` agar GitHub Actions menjalankan analyze + signed release build + deploy.
-4. Verifikasi APK `1.0.4+5` di HP: fresh install, upgrade dari 1.0.3, popup sekali, maintenance retry, action, dan force update.
+### Validasi Perangkat yang Masih Disarankan
+1. Fresh install v1.0.4+5.
+2. Upgrade dari v1.0.3.
+3. Uji popup sekali per sesi, maintenance retry, action, dan force update secara terkontrol.
+
+---
+
+## UPDATE v1.0.5+6 — CUSTOM LAUNCHER ICON + SPLASH 5 DETIK
+### Status: IMPLEMENTED LOCALLY ✅ — BELUM COMMIT/DEPLOY
+### Tanggal: 23 Agustus 2026
+
+### Launcher Icon
+- Sumber: logo HTTPS dari MasterPanel, PNG RGBA 1024x1024.
+- Legacy mipmap: 48/72/96/144/192 px untuk mdpi sampai xxxhdpi.
+- Adaptive foreground: 108/162/216/324/432 px dengan padding 72%.
+- Adaptive background: `#081633`.
+- Artwork Play Store: 512x512.
+- Canonical resource: `branding/launcher_icon/res/`.
+- Workflow menyalin resource setelah `flutter create`, sehingga ikon tidak kembali ke default Flutter.
+
+### Splash Screen
+- Branded Flutter splash tampil selama minimal 5 detik sejak startup.
+- Fetch config dibatasi 2 detik per endpoint (primary + fallback), sehingga dua percobaan selesai dalam jendela splash 5 detik.
+- Setelah durasi selesai, splash hilang dan aplikasi masuk ke maintenance gate atau shell utama sesuai Remote Config.
+- Error config/image tetap menggunakan fallback aman dan tidak menyebabkan crash.
+
+### Status Rilis
+- Versi lokal: `1.0.5+6`.
+- Belum commit, push, build CI, deploy, atau tes launcher pada perangkat fisik.

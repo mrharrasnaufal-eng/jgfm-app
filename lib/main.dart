@@ -147,7 +147,8 @@ class _MainScreenState extends State<MainScreen> {
     setState(() => _config = loadedConfig);
 
     if (showSplash) {
-      const minimumSplashDuration = Duration(milliseconds: 900);
+      // Keep the branded splash visible for five seconds from app start.
+      const minimumSplashDuration = Duration(seconds: 5);
       final elapsed = DateTime.now().difference(startedAt);
       if (elapsed < minimumSplashDuration) {
         await Future.delayed(minimumSplashDuration - elapsed);

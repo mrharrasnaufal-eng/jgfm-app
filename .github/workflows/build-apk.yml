@@ -31,6 +31,17 @@ jobs:
           rm -rf android
           flutter create --platforms=android --org com.jagatfilm --project-name jagatfilm .
 
+      - name: Apply JagatFilm launcher icon
+        run: |
+          ICON_RES="branding/launcher_icon/res"
+          test -f "$ICON_RES/mipmap-mdpi/ic_launcher.png"
+          test -f "$ICON_RES/mipmap-xxxhdpi/ic_launcher.png"
+          test -f "$ICON_RES/mipmap-anydpi-v26/ic_launcher.xml"
+          test -f "$ICON_RES/drawable-xxxhdpi/ic_launcher_foreground.png"
+          mkdir -p android/app/src/main/res
+          cp -R "$ICON_RES"/. android/app/src/main/res/
+          echo "✅ Custom legacy and adaptive launcher icons applied"
+
       - name: Ensure internet permission
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
