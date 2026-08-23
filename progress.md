@@ -396,7 +396,7 @@ git remote set-url origin https://github.com/mrharrasnaufal-eng/jgfm-app.git
 ## UPDATE 23 AGUSTUS 2026 — APK v1.0.5+6 LAUNCHER ICON + SPLASH
 
 ### Status
-- Implementasi lokal selesai; belum commit, push, build CI, atau deploy.
+- Commit `0aa9eae`, GitHub Actions run `32646131587` sukses, deployed v1.0.5+6.
 
 ### Launcher Icon
 - Logo MasterPanel PNG RGBA 1024x1024 digunakan sebagai sumber.
@@ -417,3 +417,23 @@ git remote set-url origin https://github.com/mrharrasnaufal-eng/jgfm-app.git
 - Canonical assets dan mirror Android byte-identical.
 - Simulasi copy workflow berhasil mengganti ikon default.
 - Workflow YAML valid.
+
+---
+
+## UPDATE 23 AGUSTUS 2026 — APK v1.0.6+7 SPLASH BERSIH
+
+### Status
+- Commit `28f7ef6`, GitHub Actions run `32647061863` sukses, deployed v1.0.6+7.
+
+### Perubahan
+- Splash screen sekarang hanya menampilkan `splash_image_url` fullscreen selama 5 detik.
+- Dihapus: logo overlay di tengah splash, overlay gelap, dan CircularProgressIndicator.
+- Fallback: jika URL splash kosong/gagal, tampil gradient gelap default.
+- Setelah 5 detik, langsung masuk halaman utama atau maintenance gate.
+
+### Verifikasi
+- APK publik v1.0.6 versionCode 7.
+- SHA-256 publik = server: `38c825d32266bb78b25e8bea23da95a79ce19b62a9ac66e96e07f89e1fa089fa`.
+- Cloudflare `BYPASS`, `no-store`.
+- MasterPanel `/api/config` HTTP 200.
+- Git clean, `HEAD == origin/main` pada `28f7ef6`.

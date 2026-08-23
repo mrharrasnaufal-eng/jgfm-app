@@ -238,5 +238,6 @@
 - Error config/image tetap menggunakan fallback aman dan tidak menyebabkan crash.
 
 ### Status Rilis
-- Versi lokal: `1.0.5+6`.
-- Belum commit, push, build CI, deploy, atau tes launcher pada perangkat fisik.
+- Versi: `1.0.5+6` → deployed, commit `0aa9eae`, Actions run `32646131587` sukses.
+- Versi: `1.0.6+7` → deployed, commit `28f7ef6`, Actions run `32647061863` sukses.
+  - Fix: splash screen bersih tanpa logo overlay, tanpa spinner, murni `splash_image_url` fullscreen 5 detik.

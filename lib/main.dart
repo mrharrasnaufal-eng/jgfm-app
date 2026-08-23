@@ -14,6 +14,7 @@ import 'screens/maintenance_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/search_screen.dart';
 import 'services/auth_service.dart';
+import 'services/preload_service.dart';
 import 'services/remote_config_service.dart';
 import 'services/update_service.dart';
 import 'widgets/remote_config_popup.dart';
@@ -109,8 +110,10 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   final RemoteConfigService _remoteConfigService = RemoteConfigService();
+  final PreloadService _preloadService = PreloadService();
 
   AppRemoteConfig _config = const AppRemoteConfig.defaults();
+  PreloadResult? _preloadResult;
   int _currentIndex = 0;
   bool _isLoadingConfig = true;
   bool _sessionPopupShown = false;
@@ -148,10 +151,33 @@ class _MainScreenState extends State<MainScreen> {
 
     if (showSplash) {
       // Keep the branded splash visible for five seconds from app start.
+      // Use remaining time to preload drama data and images in parallel.
       const minimumSplashDuration = Duration(seconds: 5);
       final elapsed = DateTime.now().difference(startedAt);
-      if (elapsed < minimumSplashDuration) {
-        await Future.delayed(minimumSplashDuration - elapsed);
+      final remaining = minimumSplashDuration - elapsed;
+
+      // Start preload in parallel with remaining splash time
+      final preloadFuture = _preloadService.preload(
+        config: loadedConfig,
+        context: mounted ? context : null,
+      );
+
+      if (remaining > Duration.zero) {
+        // Wait for both: minimum splash duration AND preload (whichever is longer,
+        // but cap preload at splash duration so we never exceed 5s significantly)
+        final results = await Future.wait([
+          Future.delayed(remaining),
+          preloadFuture.timeout(remaining + const Duration(milliseconds: 500),
+              onTimeout: () => const PreloadResult.empty()),
+        ]);
+        if (mounted) _preloadResult = results[1] as PreloadResult;
+      } else {
+        // Splash already exceeded, just grab whatever preload finished
+        if (mounted) {
+          _preloadResult = await preloadFuture
+              .timeout(const Duration(seconds: 1),
+                  onTimeout: () => const PreloadResult.empty());
+        }
       }
     }
 
@@ -299,6 +325,7 @@ class _MainScreenState extends State<MainScreen> {
       HomeScreen(
         logoUrl: _config.logoUrl,
         announcement: _config.announcement,
+        preloadedDramas: _preloadResult,
       ),
       const SearchScreen(),
       const ProfileScreen(),

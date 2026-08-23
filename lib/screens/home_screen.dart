@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 import '../models/drama.dart';
 import '../services/api_service.dart';
+import '../services/preload_service.dart';
 import '../widgets/drama_card.dart';
 import 'detail_screen.dart';
 import 'profile_screen.dart';
@@ -10,11 +11,13 @@ import 'profile_screen.dart';
 class HomeScreen extends StatefulWidget {
   final String logoUrl;
   final String announcement;
+  final PreloadResult? preloadedDramas;
 
   const HomeScreen({
     super.key,
     this.logoUrl = '',
     this.announcement = '',
+    this.preloadedDramas,
   });
 
   @override
@@ -38,8 +41,19 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadDramas();
     _scrollController.addListener(_onScroll);
+    // Use preloaded data if available, otherwise fetch normally
+    final preload = widget.preloadedDramas;
+    if (preload != null && !preload.isEmpty) {
+      _dramas = List.from(preload.dramas);
+      _featuredDramas = _dramas.take(5).toList();
+      _providers = Map.from(preload.providers);
+      _providers.removeWhere((key, _) => !_workingProviders.contains(key));
+      _hasMore = preload.hasMore;
+      _isLoading = false;
+    } else {
+      _loadDramas();
+    }
   }
 
   @override
@@ -71,43 +85,71 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      // Jika user pilih "all", load dari provider yang working
-      // Jika user pilih provider tertentu, load sesuai pilihan
-      String providerParam = _selectedProvider;
       if (_selectedProvider == 'all') {
-        // Load shortmax sebagai default (paling banyak dan stabil)
-        providerParam = 'shortmax';
-      }
+        // Mix multiple providers in parallel and shuffle
+        final shuffled = List<String>.from(_workingProviders)..shuffle();
+        final selected = shuffled.take(6).toList();
 
-      final response = await _api.getDramas(
-        page: 1,
-        limit: 30,
-        provider: providerParam,
-      );
+        final futures = selected.map(
+          (p) => _api
+              .getDramas(page: 1, limit: 12, provider: p)
+              .timeout(const Duration(seconds: 4))
+              .catchError((_) => DramaListResponse(
+                    dramas: [],
+                    page: 1,
+                    totalPages: 1,
+                    total: 0,
+                    hasMore: false,
+                    providers: {},
+                  )),
+        );
+        final results = await Future.wait(futures);
 
-      // Jika "all" dipilih, load juga dari provider lain
-      List<Drama> allDramas = response.dramas;
-      if (_selectedProvider == 'all' && allDramas.length < 30) {
-        // Tambah dari provider lain
-        for (final p in ['cashdrama', 'netshort', 'rapidtv', 'bilitv', 'flickreels']) {
-          try {
-            final extra = await _api.getDramas(page: 1, limit: 10, provider: p);
-            allDramas.addAll(extra.dramas);
-          } catch (_) {}
-          if (allDramas.length >= 30) break;
+        final allDramas = <Drama>[];
+        final allProviders = <String, int>{};
+        bool hasMore = false;
+        for (final r in results) {
+          allDramas.addAll(r.dramas);
+          hasMore = hasMore || r.hasMore;
+          r.providers.forEach((k, v) {
+            if (_workingProviders.contains(k)) allProviders[k] = v;
+          });
         }
-      }
 
-      setState(() {
-        _dramas = allDramas;
-        _featuredDramas = allDramas.take(5).toList();
-        _providers = response.providers;
-        // Filter providers list to show only working ones
-        _providers.removeWhere((key, _) => !_workingProviders.contains(key));
-        _hasMore = response.hasMore;
-        _currentPage = 1;
-        _isLoading = false;
-      });
+        // Deduplicate and shuffle
+        final seen = <String>{};
+        final unique = <Drama>[];
+        for (final d in allDramas) {
+          if (d.id.isNotEmpty && seen.add(d.id)) unique.add(d);
+        }
+        unique.shuffle();
+
+        setState(() {
+          _dramas = unique;
+          _featuredDramas = unique.take(5).toList();
+          _providers = allProviders;
+          _hasMore = hasMore;
+          _currentPage = 1;
+          _isLoading = false;
+        });
+      } else {
+        // Single provider mode
+        final response = await _api.getDramas(
+          page: 1,
+          limit: 30,
+          provider: _selectedProvider,
+        );
+
+        setState(() {
+          _dramas = response.dramas;
+          _featuredDramas = response.dramas.take(5).toList();
+          _providers = response.providers;
+          _providers.removeWhere((key, _) => !_workingProviders.contains(key));
+          _hasMore = response.hasMore;
+          _currentPage = 1;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       setState(() {
         _error = e.toString();
