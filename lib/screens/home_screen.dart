@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../utils/constants.dart';
 import 'home_tabs/untukmu_tab.dart';
+import 'home_tabs/terbaru_tab.dart';
+import 'home_tabs/peringkat_tab.dart';
 import 'home_tabs/kategori_tab.dart';
 import 'search_screen.dart';
 
@@ -64,8 +66,8 @@ class _HomeScreenState extends State<HomeScreen>
                 controller: _tabController,
                 children: const [
                   UntukmuTab(),
-                  _PlaceholderTab(text: 'Terbaru — Segera Hadir'),
-                  _PlaceholderTab(text: 'Peringkat — Segera Hadir'),
+                  TerbaruTab(),
+                  PeringkatTab(),
                   KategoriTab(),
                 ],
               ),
@@ -229,34 +231,4 @@ class _HomeScreenState extends State<HomeScreen>
   }
 }
 
-/// Placeholder tab for future implementation
-class _PlaceholderTab extends StatelessWidget {
-  final String text;
 
-  const _PlaceholderTab({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.construction_rounded,
-            size: 48,
-            color: AppTheme.textTertiary,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            text,
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: AppFontSize.h3,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

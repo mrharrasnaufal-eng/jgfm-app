@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../utils/constants.dart';
 import 'home_screen.dart';
+import 'for_you_screen.dart';
 import 'profile_screen.dart';
 
 /// Placeholder screens for tabs not yet implemented.
@@ -51,7 +52,7 @@ class _MainShellState extends State<MainShell> {
         logoUrl: widget.logoUrl ?? '',
         announcement: widget.announcement ?? '',
       ),
-      const _PlaceholderScreen(title: 'Untuk Anda — Segera Hadir'),
+      const ForYouScreen(),
       const _PlaceholderScreen(title: 'Koin — Segera Hadir'),
       const _PlaceholderScreen(title: 'Daftarku — Segera Hadir'),
       const ProfileScreen(),
