@@ -5,7 +5,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UpdateService {
-  static const String _versionUrl = 'https://jagatfilm.com/app/version.json';
+  // Use www to avoid 301 redirect (non-www redirects to www via Cloudflare)
+  static const String _versionUrl =
+      'https://www.jagatfilm.com/app/version.json';
 
   /// Get current app version safely
   static Future<Map<String, String>> getAppVersion() async {
@@ -20,12 +22,24 @@ class UpdateService {
     }
   }
 
-  /// Get update info from server. Returns null if failed.
+  /// Get update info from server.
+  /// Returns Map on success, null on network/parse error.
+  /// Adds cache-bust query param to bypass any caching layer.
   static Future<Map<String, dynamic>?> getUpdateInfo() async {
     try {
+      // Cache bust: append timestamp to bypass Cloudflare/browser cache
+      final cacheBust = DateTime.now().millisecondsSinceEpoch;
+      final url = '$_versionUrl?t=$cacheBust';
+
       final response = await http
-          .get(Uri.parse(_versionUrl))
-          .timeout(const Duration(seconds: 10));
+          .get(
+            Uri.parse(url),
+            headers: {
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) return null;
 
@@ -35,6 +49,11 @@ class UpdateService {
       final json = jsonDecode(body);
       if (json is! Map<String, dynamic>) return null;
 
+      // Validate required fields exist
+      if (!json.containsKey('versionCode') || !json.containsKey('version')) {
+        return null;
+      }
+
       return json;
     } catch (_) {
       return null;
@@ -42,7 +61,8 @@ class UpdateService {
   }
 
   /// Open download URL in browser
-  static Future<void> openDownloadUrl(BuildContext context, String apkUrl) async {
+  static Future<void> openDownloadUrl(
+      BuildContext context, String apkUrl) async {
     if (apkUrl.isEmpty) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -84,14 +104,15 @@ class UpdateService {
 
   /// Check for app update and show dialog if available (auto-check on app open)
   static Future<void> checkForUpdate(BuildContext context) async {
-    // Delay sedikit agar app fully loaded dulu
-    await Future.delayed(const Duration(seconds: 2));
-    
+    // Delay agar app fully loaded dulu
+    await Future.delayed(const Duration(seconds: 3));
+
     try {
       final appInfo = await getAppVersion();
       final currentVersionCode = int.tryParse(appInfo['code'] ?? '0') ?? 0;
 
       final json = await getUpdateInfo();
+      // If null = network error, silently fail (don't show "up to date")
       if (json == null) return;
 
       final remoteVersionCode = json['versionCode'] as int? ?? 0;
@@ -100,6 +121,7 @@ class UpdateService {
       final changelog = json['changelog'] as String? ?? '';
       final forceUpdate = json['force_update'] as bool? ?? false;
 
+      // Only show dialog if remote is NEWER
       if (remoteVersionCode <= currentVersionCode) return;
 
       if (!context.mounted) return;
@@ -112,7 +134,7 @@ class UpdateService {
         forceUpdate: forceUpdate,
       );
     } catch (_) {
-      // Silently fail
+      // Silently fail - NEVER crash
     }
   }
 

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
-import 'package:chewie/chewie.dart';
 import '../models/drama.dart';
 import '../services/api_service.dart';
 
@@ -24,15 +23,19 @@ class PlayerScreen extends StatefulWidget {
 class _PlayerScreenState extends State<PlayerScreen> {
   final ApiService _api = ApiService();
   VideoPlayerController? _videoController;
-  ChewieController? _chewieController;
   bool _isLoading = true;
   String? _error;
-  String _currentVideoUrl = '';
   String _rawHdUrl = '';
   String _rawSdUrl = '';
   int _currentEpisode = 1;
   bool _isHD = true;
   bool _showOverlay = true;
+  bool _isPlaying = false;
+
+  // Gesture feedback
+  bool _showPauseIcon = false;
+  bool _showSeekBackward = false;
+  bool _showSeekForward = false;
 
   @override
   void initState() {
@@ -49,20 +52,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
-    _chewieController?.dispose();
     _videoController?.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
-  }
-
-  /// Use direct URL - ExoPlayer on Android can handle HLS and MP4 natively
-  /// The proxy approach doesn't work well on mobile because ExoPlayer
-  /// needs to directly access video segments
-  String _getPlayableUrl(String rawUrl) {
-    if (rawUrl.isEmpty) return '';
-    // Use raw URL directly - ExoPlayer supports HLS/MP4 natively
-    // Only use proxy if absolutely needed (CORS is browser-only issue)
-    return rawUrl;
   }
 
   Map<String, String> _getVideoHeaders(String url) {
@@ -82,7 +74,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
     setState(() {
       _isLoading = true;
       _error = null;
-      _currentVideoUrl = '';
       _showOverlay = true;
     });
 
@@ -109,55 +100,28 @@ class _PlayerScreenState extends State<PlayerScreen> {
         return;
       }
 
-      // Use direct URL (no proxy needed for native Android)
-      final videoUrl = _getPlayableUrl(rawUrl);
-      _currentVideoUrl = videoUrl;
-
-      // Dispose old
-      _chewieController?.dispose();
+      // Dispose old controller
       _videoController?.dispose();
-      _chewieController = null;
       _videoController = null;
 
       // Create controller with headers
-      final uri = Uri.parse(videoUrl);
-      final headers = _getVideoHeaders(videoUrl);
+      final uri = Uri.parse(rawUrl);
+      final headers = _getVideoHeaders(rawUrl);
 
       _videoController = VideoPlayerController.networkUrl(
         uri,
         httpHeaders: headers,
       );
 
-      _videoController!.addListener(() {
-        if (_videoController!.value.hasError && mounted && _error == null) {
-          setState(() {
-            _error = _videoController!.value.errorDescription ?? 'Playback error';
-          });
-        }
-      });
+      _videoController!.addListener(_videoListener);
 
       await _videoController!.initialize();
+      _videoController!.play();
 
-      // Chewie - no controls visible, fullscreen feel
-      _chewieController = ChewieController(
-        videoPlayerController: _videoController!,
-        autoPlay: true,
-        looping: false,
-        showControls: true,
-        showOptions: false,
-        allowFullScreen: false,
-        allowMuting: false,
-        allowPlaybackSpeedChanging: false,
-        showControlsOnInitialize: false,
-        materialProgressColors: ChewieProgressColors(
-          playedColor: const Color(0xFF6C63FF),
-          handleColor: const Color(0xFF6C63FF),
-          bufferedColor: Colors.white24,
-          backgroundColor: Colors.white12,
-        ),
-      );
-
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _isPlaying = true;
+      });
 
       // Hide overlay after video starts
       Future.delayed(const Duration(seconds: 3), () {
@@ -169,6 +133,82 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  void _videoListener() {
+    if (!mounted) return;
+    if (_videoController == null) return;
+
+    final value = _videoController!.value;
+
+    if (value.hasError && _error == null) {
+      setState(() {
+        _error = value.errorDescription ?? 'Playback error';
+      });
+    }
+
+    // Update playing state
+    if (value.isPlaying != _isPlaying) {
+      setState(() => _isPlaying = value.isPlaying);
+    }
+  }
+
+  // === GESTURE HANDLERS ===
+
+  void _togglePlayPause() {
+    if (_videoController == null || !_videoController!.value.isInitialized) {
+      return;
+    }
+
+    if (_videoController!.value.isPlaying) {
+      _videoController!.pause();
+      setState(() {
+        _isPlaying = false;
+        _showPauseIcon = true;
+      });
+    } else {
+      _videoController!.play();
+      setState(() {
+        _isPlaying = true;
+        _showPauseIcon = true;
+      });
+    }
+
+    // Hide icon after short delay
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted) setState(() => _showPauseIcon = false);
+    });
+  }
+
+  void _seekBackward() {
+    if (_videoController == null || !_videoController!.value.isInitialized) {
+      return;
+    }
+
+    final current = _videoController!.value.position;
+    final target = current - const Duration(seconds: 10);
+    _videoController!.seekTo(target < Duration.zero ? Duration.zero : target);
+
+    setState(() => _showSeekBackward = true);
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted) setState(() => _showSeekBackward = false);
+    });
+  }
+
+  void _seekForward() {
+    if (_videoController == null || !_videoController!.value.isInitialized) {
+      return;
+    }
+
+    final current = _videoController!.value.position;
+    final duration = _videoController!.value.duration;
+    final target = current + const Duration(seconds: 10);
+    _videoController!.seekTo(target > duration ? duration : target);
+
+    setState(() => _showSeekForward = true);
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted) setState(() => _showSeekForward = false);
+    });
   }
 
   void _nextEpisode() {
@@ -200,57 +240,372 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: GestureDetector(
-        // Tap to show/hide overlay
-        onTap: _toggleOverlay,
-        // Swipe down = next, swipe up = prev
-        onVerticalDragEnd: (details) {
-          if (details.primaryVelocity == null) return;
-          // Swipe ke atas (jari naik) = next episode (seperti TikTok)
-          if (details.primaryVelocity! < -200) {
-            _nextEpisode();
-          // Swipe ke bawah (jari turun) = prev episode
-          } else if (details.primaryVelocity! > 200) {
-            _prevEpisode();
-          }
-        },
-        child: Stack(
-          fit: StackFit.expand,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Video layer - BoxFit.contain (no zoom, no crop)
+          _buildVideoLayer(),
+
+          // Gesture detection zones
+          _buildGestureZones(),
+
+          // Seek/Pause feedback icons
+          _buildGestureFeedback(),
+
+          // Top overlay (back, title, quality)
+          if (_showOverlay) _buildTopOverlay(),
+
+          // Bottom overlay (progress bar, episode nav)
+          if (_showOverlay) _buildBottomOverlay(),
+
+          // Loading overlay
+          if (_isLoading) _buildLoadingOverlay(),
+
+          // Error overlay
+          if (_error != null && !_isLoading) _buildErrorOverlay(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideoLayer() {
+    if (_videoController != null &&
+        _videoController!.value.isInitialized &&
+        _error == null) {
+      return Center(
+        child: AspectRatio(
+          aspectRatio: _videoController!.value.aspectRatio,
+          child: VideoPlayer(_videoController!),
+        ),
+      );
+    }
+    return Container(color: Colors.black);
+  }
+
+  Widget _buildGestureZones() {
+    return Row(
+      children: [
+        // Left zone - double tap = seek backward
+        Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _toggleOverlay,
+            onDoubleTap: _seekBackward,
+            onVerticalDragEnd: _handleVerticalSwipe,
+            child: Container(color: Colors.transparent),
+          ),
+        ),
+        // Center zone - double tap = pause/play
+        Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _toggleOverlay,
+            onDoubleTap: _togglePlayPause,
+            onVerticalDragEnd: _handleVerticalSwipe,
+            child: Container(color: Colors.transparent),
+          ),
+        ),
+        // Right zone - double tap = seek forward
+        Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _toggleOverlay,
+            onDoubleTap: _seekForward,
+            onVerticalDragEnd: _handleVerticalSwipe,
+            child: Container(color: Colors.transparent),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _handleVerticalSwipe(DragEndDetails details) {
+    if (details.primaryVelocity == null) return;
+    // Swipe ke atas (jari naik) = next episode (seperti TikTok)
+    if (details.primaryVelocity! < -200) {
+      _nextEpisode();
+    // Swipe ke bawah (jari turun) = prev episode
+    } else if (details.primaryVelocity! > 200) {
+      _prevEpisode();
+    }
+  }
+
+  Widget _buildGestureFeedback() {
+    return Stack(
+      children: [
+        // Pause/Play icon - center
+        if (_showPauseIcon)
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.black.withAlpha(120),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _isPlaying
+                    ? Icons.play_arrow_rounded
+                    : Icons.pause_rounded,
+                color: Colors.white,
+                size: 48,
+              ),
+            ),
+          ),
+
+        // Seek backward icon - left
+        if (_showSeekBackward)
+          Positioned(
+            left: 40,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.black.withAlpha(120),
+                  shape: BoxShape.circle,
+                ),
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.replay_10_rounded,
+                        color: Colors.white, size: 36),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+        // Seek forward icon - right
+        if (_showSeekForward)
+          Positioned(
+            right: 40,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.black.withAlpha(120),
+                  shape: BoxShape.circle,
+                ),
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.forward_10_rounded,
+                        color: Colors.white, size: 36),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildTopOverlay() {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(4, 40, 8, 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.black.withAlpha(200), Colors.transparent],
+          ),
+        ),
+        child: Row(
           children: [
-            // Video fills entire screen
-            _buildVideoFullscreen(),
-
-            // Top overlay (back, title, quality)
-            if (_showOverlay) _buildTopOverlay(),
-
-            // Bottom overlay (episode info, swipe hint)
-            if (_showOverlay) _buildBottomOverlay(),
-
-            // Loading overlay
-            if (_isLoading) _buildLoadingOverlay(),
-
-            // Error overlay
-            if (_error != null && !_isLoading) _buildErrorOverlay(),
+            IconButton(
+              icon: const Icon(Icons.arrow_back_rounded,
+                  color: Colors.white, size: 24),
+              onPressed: () => Navigator.pop(context),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    widget.drama.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Ep $_currentEpisode/${widget.totalEpisodes} • ${widget.drama.source}',
+                    style:
+                        const TextStyle(color: Colors.white60, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            // Quality badge
+            GestureDetector(
+              onTap: _toggleQuality,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color:
+                      _isHD ? const Color(0xFF6C63FF) : Colors.grey[700],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(_isHD ? 'HD' : 'SD',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold)),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildVideoFullscreen() {
-    if (_chewieController != null && !_isLoading && _error == null) {
-      return SizedBox.expand(
-        child: FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: _videoController!.value.size.width,
-            height: _videoController!.value.size.height,
-            child: Chewie(controller: _chewieController!),
+  Widget _buildBottomOverlay() {
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            colors: [Colors.black.withAlpha(200), Colors.transparent],
           ),
         ),
-      );
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Progress bar
+            if (_videoController != null &&
+                _videoController!.value.isInitialized)
+              _buildProgressBar(),
+
+            const SizedBox(height: 12),
+
+            // Episode navigation
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (_currentEpisode > 1)
+                  IconButton(
+                    onPressed: _prevEpisode,
+                    icon: const Icon(Icons.skip_previous_rounded,
+                        color: Colors.white, size: 32),
+                  ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(30),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Episode $_currentEpisode',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ),
+                if (_currentEpisode < widget.totalEpisodes)
+                  IconButton(
+                    onPressed: _nextEpisode,
+                    icon: const Icon(Icons.skip_next_rounded,
+                        color: Colors.white, size: 32),
+                  ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+
+            // Gesture hints
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.touch_app_rounded,
+                    color: Colors.grey[600], size: 14),
+                const SizedBox(width: 4),
+                Text(
+                  '2x tap: kiri=mundur • tengah=pause • kanan=maju',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 10),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProgressBar() {
+    final position = _videoController!.value.position;
+    final duration = _videoController!.value.duration;
+
+    return Column(
+      children: [
+        // Time labels
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              _formatDuration(position),
+              style: TextStyle(color: Colors.grey[400], fontSize: 11),
+            ),
+            Text(
+              _formatDuration(duration),
+              style: TextStyle(color: Colors.grey[400], fontSize: 11),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        // Seekable progress bar
+        SliderTheme(
+          data: SliderThemeData(
+            trackHeight: 3,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+            activeTrackColor: const Color(0xFF6C63FF),
+            inactiveTrackColor: Colors.white24,
+            thumbColor: const Color(0xFF6C63FF),
+            overlayColor: const Color(0xFF6C63FF).withAlpha(40),
+          ),
+          child: Slider(
+            min: 0,
+            max: duration.inMilliseconds > 0
+                ? duration.inMilliseconds.toDouble()
+                : 1.0,
+            value: position.inMilliseconds
+                .toDouble()
+                .clamp(0, duration.inMilliseconds.toDouble()),
+            onChanged: (value) {
+              _videoController!
+                  .seekTo(Duration(milliseconds: value.toInt()));
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    if (d.inHours > 0) {
+      return '${d.inHours}:$minutes:$seconds';
     }
-    return Container(color: Colors.black);
+    return '$minutes:$seconds';
   }
 
   Widget _buildLoadingOverlay() {
@@ -327,148 +682,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Geser bawah untuk episode berikutnya',
-                style: TextStyle(color: Colors.grey[600], fontSize: 11),
-              ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTopOverlay() {
-    return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(4, 40, 8, 12),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.black.withAlpha(200), Colors.transparent],
-          ),
-        ),
-        child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back_rounded,
-                  color: Colors.white, size: 24),
-              onPressed: () => Navigator.pop(context),
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    widget.drama.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    'Ep $_currentEpisode/${widget.totalEpisodes} • ${widget.drama.source}',
-                    style: const TextStyle(color: Colors.white60, fontSize: 11),
-                  ),
-                ],
-              ),
-            ),
-            // Quality badge
-            GestureDetector(
-              onTap: _toggleQuality,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _isHD ? const Color(0xFF6C63FF) : Colors.grey[700],
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(_isHD ? 'HD' : 'SD',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBottomOverlay() {
-    return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [Colors.black.withAlpha(200), Colors.transparent],
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Episode navigation
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (_currentEpisode > 1)
-                  IconButton(
-                    onPressed: _prevEpisode,
-                    icon: const Icon(Icons.skip_previous_rounded,
-                        color: Colors.white, size: 32),
-                  ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(30),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    'Episode $_currentEpisode',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600),
-                  ),
-                ),
-                if (_currentEpisode < widget.totalEpisodes)
-                  IconButton(
-                    onPressed: _nextEpisode,
-                    icon: const Icon(Icons.skip_next_rounded,
-                        color: Colors.white, size: 32),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // Swipe hint
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.swipe_up_rounded,
-                    color: Colors.white38, size: 16),
-                const SizedBox(width: 4),
-                Text(
-                  'Geser atas = episode berikutnya',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 11),
-                ),
-              ],
-            ),
-          ],
         ),
       ),
     );

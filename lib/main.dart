@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'services/auth_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/search_screen.dart';
@@ -20,11 +22,35 @@ void main() {
         statusBarIconBrightness: Brightness.light,
       ),
     );
+    // Run migration check before app starts (async, non-blocking)
+    _runMigration();
     runApp(const JagatFilmApp());
   }, (error, stack) {
     // Catch unhandled errors - prevent crash
     debugPrint('Unhandled error: $error');
   });
+}
+
+/// Migration check: if app version changed, clear potentially incompatible data
+Future<void> _runMigration() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final packageInfo = await PackageInfo.fromPlatform();
+    final currentBuild = packageInfo.buildNumber;
+    final savedBuild = prefs.getString('last_build_number') ?? '';
+
+    if (savedBuild != currentBuild && savedBuild.isNotEmpty) {
+      // Version changed! Clear old cached data that might be incompatible
+      // Keep user auth data (user, token) but clear anything else
+      debugPrint('Migration: $savedBuild → $currentBuild');
+      // Currently no cached data to clear, but this is the hook for future use
+    }
+
+    // Save current build number
+    await prefs.setString('last_build_number', currentBuild);
+  } catch (_) {
+    // Migration failure should never crash the app
+  }
 }
 
 class JagatFilmApp extends StatelessWidget {

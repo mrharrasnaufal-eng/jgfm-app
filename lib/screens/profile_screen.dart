@@ -277,8 +277,9 @@ class _UpdateScreenState extends State<UpdateScreen> {
       final result = await UpdateService.getUpdateInfo();
 
       if (result == null) {
+        // null = network error or parse error, NOT "up to date"
         setState(() {
-          _isUpToDate = true;
+          _error = 'Tidak dapat terhubung ke server. Periksa koneksi internet.';
           _isChecking = false;
         });
         return;
@@ -302,7 +303,7 @@ class _UpdateScreenState extends State<UpdateScreen> {
       }
     } catch (e) {
       setState(() {
-        _error = 'Gagal memeriksa pembaruan: $e';
+        _error = 'Gagal memeriksa pembaruan. Coba lagi nanti.';
         _isChecking = false;
       });
     }
