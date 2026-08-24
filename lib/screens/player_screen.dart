@@ -246,9 +246,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (_currentEpisode < widget.totalEpisodes) {
       _videoController?.pause();
 
-      // Show interstitial every 3 episodes
-      if (AdService.shouldShowInterstitial()) {
-        await AdService.showInterstitial(context);
+      // Show interstitial: variant A (ep 3) or B (ep 6)
+      final variant = AdService.shouldShowAd();
+      if (variant != null) {
+        await AdService.showInterstitialVariant(context, variant);
       }
 
       setState(() => _currentEpisode++);
