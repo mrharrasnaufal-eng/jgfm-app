@@ -186,18 +186,7 @@ class _InterstitialScreenState extends State<_InterstitialScreen>
         ),
       )
       ..setBackgroundColor(Colors.black)
-      ..loadHtmlString(_buildHtml());
-  }
-
-  String _buildHtml() {
-    return '''<!DOCTYPE html><html><head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;background:#0a0a0a;overflow:hidden}iframe{width:100%;height:100%;border:none}</style>
-</head><body>
-<iframe src="${AdService.smartlinkUrl}" allowfullscreen sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation"></iframe>
-<script src="${AdService.socialBarScript}" async></script>
-</body></html>''';
+      ..loadRequest(Uri.parse(AdService.smartlinkUrl));
   }
 
   void _startCountdown() {
@@ -418,18 +407,7 @@ class _RewardedAdScreenState extends State<_RewardedAdScreen> {
         ),
       )
       ..setBackgroundColor(Colors.black)
-      ..loadHtmlString(_buildHtml());
-  }
-
-  String _buildHtml() {
-    return '''<!DOCTYPE html><html><head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;background:#0a0a0a;overflow:hidden}iframe{width:100%;height:100%;border:none}</style>
-</head><body>
-<iframe src="${AdService.smartlinkUrl}" allowfullscreen sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation"></iframe>
-<script src="${AdService.socialBarScript}" async></script>
-</body></html>''';
+      ..loadRequest(Uri.parse(AdService.smartlinkUrl));
   }
 
   void _startCountdown() {

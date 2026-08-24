@@ -1,7 +1,7 @@
 name: jagatfilm
 description: JagatFilm - Streaming Drama Indonesia
 publish_to: 'none'
-version: 2.3.2+22
+version: 2.3.3+23
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
