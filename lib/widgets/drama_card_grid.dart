@@ -27,17 +27,19 @@ class DramaCardGrid extends StatelessWidget {
           // Poster with badges
           AspectRatio(
             aspectRatio: 2 / 3,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Poster image
-                  CachedNetworkImage(
-                    imageUrl: drama.proxiedCover,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
-                      color: AppTheme.card,
+            child: Hero(
+              tag: 'drama_cover_${drama.id}',
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Poster image
+                    CachedNetworkImage(
+                      imageUrl: drama.proxiedCover,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(
+                        color: AppTheme.card,
                       child: const Center(
                         child: SizedBox(
                           width: 20,
@@ -127,6 +129,7 @@ class DramaCardGrid extends StatelessWidget {
                     ),
                 ],
               ),
+            ),
             ),
           ),
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../services/ad_service.dart';
 import '../services/coin_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/constants.dart';
@@ -126,7 +127,7 @@ class CoinScreen extends StatelessWidget {
             reward: '+10',
             trailing: _MissionAction(
               label: '▶',
-              onTap: () => _showComingSoon(context),
+              onTap: () => _watchAd(context),
             ),
           ),
           _MissionTile(
@@ -216,7 +217,7 @@ class CoinScreen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: InkWell(
-        onTap: () => _showComingSoon(context),
+        onTap: () => _watchAd(context),
         borderRadius: BorderRadius.circular(AppRadius.card + 4),
         child: Container(
           width: double.infinity,
@@ -271,6 +272,18 @@ class CoinScreen extends StatelessWidget {
         duration: Duration(seconds: 2),
       ),
     );
+  }
+
+  static Future<void> _watchAd(BuildContext context) async {
+    final rewarded = await AdService.showRewarded(context);
+    if (rewarded && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🎉 +10 Koin berhasil diklaim!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 }
 

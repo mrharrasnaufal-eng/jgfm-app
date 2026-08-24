@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import '../models/drama.dart';
+import '../services/ad_service.dart';
 import '../services/api_service.dart';
 import '../services/history_service.dart';
 import '../services/watchlist_service.dart';
@@ -241,9 +242,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
     });
   }
 
-  void _nextEpisode() {
+  Future<void> _nextEpisode() async {
     if (_currentEpisode < widget.totalEpisodes) {
       _videoController?.pause();
+
+      // Show interstitial every 3 episodes
+      if (AdService.shouldShowInterstitial()) {
+        await AdService.showInterstitial(context);
+      }
+
       setState(() => _currentEpisode++);
       _loadStream();
     }

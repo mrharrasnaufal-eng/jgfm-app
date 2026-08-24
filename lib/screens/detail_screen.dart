@@ -126,15 +126,18 @@ class _DetailScreenState extends State<DetailScreen> {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  CachedNetworkImage(
-                    imageUrl: drama.proxiedCoverHorizontal,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(color: Colors.grey[900]),
-                    errorWidget: (_, __, ___) => Container(
-                      color: Colors.grey[900],
-                      child: CachedNetworkImage(
-                        imageUrl: drama.proxiedCover,
-                        fit: BoxFit.cover,
+                  Hero(
+                    tag: 'drama_cover_${drama.id}',
+                    child: CachedNetworkImage(
+                      imageUrl: drama.proxiedCoverHorizontal,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(color: Colors.grey[900]),
+                      errorWidget: (_, __, ___) => Container(
+                        color: Colors.grey[900],
+                        child: CachedNetworkImage(
+                          imageUrl: drama.proxiedCover,
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
                   ),
