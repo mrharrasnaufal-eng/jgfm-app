@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import '../models/drama.dart';
 import '../services/api_service.dart';
+import '../services/history_service.dart';
+import '../services/watchlist_service.dart';
 
 class PlayerScreen extends StatefulWidget {
   final Drama drama;
@@ -123,6 +126,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _isPlaying = true;
       });
 
+      // Record watch history & update watchlist progress
+      _recordHistory();
+
       // Hide overlay after video starts
       Future.delayed(const Duration(seconds: 3), () {
         if (mounted) setState(() => _showOverlay = false);
@@ -132,6 +138,30 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _error = e.toString();
         _isLoading = false;
       });
+    }
+  }
+
+  /// Record this episode to watch history and update watchlist progress.
+  void _recordHistory() {
+    try {
+      final historyService = context.read<HistoryService>();
+      historyService.record(
+        dramaId: widget.drama.id,
+        title: widget.drama.title,
+        cover: widget.drama.cover,
+        genre: widget.drama.genre,
+        source: widget.drama.source,
+        episode: _currentEpisode,
+        totalEpisodes: widget.totalEpisodes,
+      );
+
+      // Also update watchlist progress if drama is in watchlist
+      final watchlistService = context.read<WatchlistService>();
+      if (watchlistService.isInWatchlist(widget.drama.id)) {
+        watchlistService.updateProgress(widget.drama.id, _currentEpisode);
+      }
+    } catch (_) {
+      // Non-critical — never crash the player
     }
   }
 

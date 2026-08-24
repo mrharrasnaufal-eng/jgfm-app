@@ -1,26 +1,11 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../utils/constants.dart';
-import 'home_screen.dart';
+import 'coin_screen.dart';
 import 'for_you_screen.dart';
+import 'home_screen.dart';
 import 'profile_screen.dart';
-
-/// Placeholder screens for tabs not yet implemented.
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-  const _PlaceholderScreen({required this.title});
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppTheme.background,
-        body: Center(
-          child: Text(
-            title,
-            style: const TextStyle(color: AppTheme.textTertiary),
-          ),
-        ),
-      );
-}
+import 'watchlist_screen.dart';
 
 /// MainShell — wrapper bottom navigation dengan IndexedStack.
 /// Preserve state setiap tab menggunakan IndexedStack.
@@ -53,8 +38,8 @@ class _MainShellState extends State<MainShell> {
         announcement: widget.announcement ?? '',
       ),
       const ForYouScreen(),
-      const _PlaceholderScreen(title: 'Koin — Segera Hadir'),
-      const _PlaceholderScreen(title: 'Daftarku — Segera Hadir'),
+      const CoinScreen(),
+      const WatchlistScreen(),
       const ProfileScreen(),
     ];
   }

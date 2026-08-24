@@ -1,235 +1,583 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
+
 import '../services/auth_service.dart';
+import '../services/coin_service.dart';
 import '../services/update_service.dart';
+import '../theme/app_theme.dart';
+import '../utils/constants.dart';
 import 'login_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+/// Redesigned Profile screen — avatar, stats, coin banner, menu, settings.
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final auth = Provider.of<AuthService>(context);
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
 
-    if (!auth.isLoggedIn) {
-      // Not logged in - show login prompt + update button
-      return Scaffold(
-        appBar: AppBar(title: const Text('Profil')),
-        body: Center(
+class _ProfileScreenState extends State<ProfileScreen> {
+  String _appVersion = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() => _appVersion = 'v${info.version}');
+      }
+    } catch (_) {
+      // Non-critical
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.person_outline_rounded,
-                  size: 80, color: Colors.grey[600]),
-              const SizedBox(height: 16),
-              Text(
-                'Belum login',
-                style: TextStyle(fontSize: 18, color: Colors.grey[400]),
+              _buildTopBar(context),
+              _buildProfileHeader(context),
+              const SizedBox(height: AppSpacing.lg),
+              _buildCoinBanner(context),
+              const SizedBox(height: AppSpacing.lg),
+              _buildBenefitGrid(),
+              const SizedBox(height: AppSpacing.lg),
+              _buildMenuList(context),
+              const SizedBox(height: AppSpacing.lg),
+              _buildLogoutButton(context),
+              const SizedBox(height: AppSpacing.xxl),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopBar(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          IconButton(
+            onPressed: () => _showComingSoon(context, 'Notifikasi'),
+            icon: const Icon(
+              Icons.notifications_outlined,
+              color: AppTheme.textPrimary,
+              size: 24,
+            ),
+            tooltip: 'Notifikasi',
+          ),
+          IconButton(
+            onPressed: () => _showComingSoon(context, 'Pengaturan'),
+            icon: const Icon(
+              Icons.settings_outlined,
+              color: AppTheme.textPrimary,
+              size: 24,
+            ),
+            tooltip: 'Pengaturan',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader(BuildContext context) {
+    return Consumer<AuthService>(
+      builder: (context, authService, _) {
+        if (!authService.isLoggedIn) {
+          return _buildGuestHeader(context);
+        }
+        return _buildUserHeader(authService);
+      },
+    );
+  }
+
+  Widget _buildGuestHeader(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      child: InkWell(
+        onTap: () => _navigateToLogin(context),
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            color: AppTheme.card,
+            borderRadius: BorderRadius.circular(AppRadius.card),
+          ),
+          child: Row(
+            children: [
+              // Avatar placeholder
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: AppTheme.surface,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppTheme.divider),
+                ),
+                child: const Icon(
+                  Icons.person_rounded,
+                  size: 32,
+                  color: AppTheme.textTertiary,
+                ),
               ),
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  );
-                },
-                icon: const Icon(Icons.login_rounded),
-                label: const Text('Masuk'),
-              ),
-              const SizedBox(height: 32),
-              // Cek update button
-              OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const UpdateScreen()),
-                  );
-                },
-                icon: const Icon(Icons.system_update_rounded, size: 20),
-                label: const Text('Cek Pembaruan'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white70,
-                  side: BorderSide(color: Colors.grey[700]!),
+              const SizedBox(width: AppSpacing.lg),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        Text(
+                          'Login',
+                          style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: AppFontSize.h3,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppTheme.textTertiary,
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    const Text(
+                      'Masuk untuk sinkronisasi data',
+                      style: TextStyle(
+                        color: AppTheme.textTertiary,
+                        fontSize: AppFontSize.caption,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
-      );
-    }
-
-    final user = auth.user!;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profil'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            onPressed: () => _showLogoutDialog(context, auth),
-          ),
-        ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const SizedBox(height: 16),
-          // Avatar
-          Center(
-            child: CircleAvatar(
-              radius: 50,
-              backgroundColor:
-                  Theme.of(context).colorScheme.primary.withAlpha(50),
+    );
+  }
+
+  Widget _buildUserHeader(AuthService authService) {
+    final user = authService.user!;
+    final initial = user.displayName.isNotEmpty
+        ? user.displayName[0].toUpperCase()
+        : 'U';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: AppTheme.card,
+          borderRadius: BorderRadius.circular(AppRadius.card),
+        ),
+        child: Row(
+          children: [
+            // Avatar with initial
+            Container(
+              width: 64,
+              height: 64,
+              decoration: const BoxDecoration(
+                color: AppTheme.accent,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
               child: Text(
-                user.displayName.isNotEmpty
-                    ? user.displayName[0].toUpperCase()
-                    : '?',
-                style: TextStyle(
-                  fontSize: 40,
-                  color: Theme.of(context).colorScheme.primary,
+                initial,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-
-          // Name
-          Text(
-            user.displayName,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            user.email,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey[400], fontSize: 14),
-          ),
-          const SizedBox(height: 32),
-
-          // Info cards
-          _buildInfoCard(context,
-              icon: Icons.email_outlined, title: 'Email', value: user.email),
-          _buildInfoCard(context,
-              icon: Icons.card_membership_outlined,
-              title: 'Paket',
-              value: user.currentPlanName ?? 'Free Plan'),
-
-          const SizedBox(height: 24),
-
-          // Cek Pembaruan button
-          Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: ListTile(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const UpdateScreen()),
-                );
-              },
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              tileColor: const Color(0xFF1A1A2E),
-              leading: const Icon(Icons.system_update_rounded,
-                  color: Color(0xFF6C63FF)),
-              title: const Text('Cek Pembaruan'),
-              subtitle: Text('Periksa versi terbaru aplikasi',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-              trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+            const SizedBox(width: AppSpacing.lg),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user.displayName,
+                    style: const TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    user.email,
+                    style: const TextStyle(
+                      color: AppTheme.textTertiary,
+                      fontSize: AppFontSize.caption,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: user.isVip
+                          ? AppTheme.gold.withOpacity(0.15)
+                          : AppTheme.surface,
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
+                    child: Text(
+                      user.isVip ? '⭐ VIP' : 'Free Plan',
+                      style: TextStyle(
+                        color: user.isVip ? AppTheme.gold : AppTheme.textTertiary,
+                        fontSize: AppFontSize.micro,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+          ],
+        ),
+      ),
+    );
+  }
 
-          const SizedBox(height: 16),
-
-          // App info
-          Container(
-            padding: const EdgeInsets.all(16),
+  Widget _buildCoinBanner(BuildContext context) {
+    return Consumer<CoinService>(
+      builder: (context, coinService, _) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.md,
+            ),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A2E),
-              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF2D1B3D),
+                  AppTheme.card,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(AppRadius.card),
             ),
-            child: Column(
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.info_outline, size: 18, color: Colors.grey[400]),
-                    const SizedBox(width: 8),
-                    Text('Tentang Aplikasi',
-                        style: TextStyle(color: Colors.grey[400], fontSize: 14)),
-                  ],
+                const Icon(
+                  Icons.monetization_on_rounded,
+                  color: AppTheme.gold,
+                  size: 28,
                 ),
-                const SizedBox(height: 12),
-                _buildInfoRow('Developer', 'JagatFilm Team'),
-                _buildInfoRow('Website', 'jagatfilm.com'),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Koin Saya',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: AppFontSize.caption,
+                        ),
+                      ),
+                      Text(
+                        '${coinService.balance} Koin',
+                        style: const TextStyle(
+                          color: AppTheme.gold,
+                          fontSize: AppFontSize.h3,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                InkWell(
+                  onTap: () => _showComingSoon(context, 'Dapatkan Koin'),
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.accent,
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
+                    child: const Text(
+                      'Dapatkan Koin',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: AppFontSize.caption,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildInfoCard(BuildContext context,
-      {required IconData icon, required String title, required String value}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.circular(12),
-      ),
+  Widget _buildBenefitGrid() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Row(
         children: [
-          Icon(icon, color: Theme.of(context).colorScheme.primary, size: 24),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-              const SizedBox(height: 2),
-              Text(value, style: const TextStyle(fontSize: 15)),
-            ],
+          Expanded(
+            child: _BenefitCard(
+              icon: Icons.movie_filter_rounded,
+              label: '25\nProvider',
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: _BenefitCard(
+              icon: Icons.monetization_on_rounded,
+              label: 'Koin\nGratis',
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: _BenefitCard(
+              icon: Icons.download_rounded,
+              label: 'Unduh\nEpisode',
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: _BenefitCard(
+              icon: Icons.hd_rounded,
+              label: 'HD\n1080p',
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _buildMenuList(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(color: Colors.grey[500], fontSize: 13)),
-          Text(value, style: const TextStyle(fontSize: 13)),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.card,
+          borderRadius: BorderRadius.circular(AppRadius.card),
+        ),
+        child: Column(
+          children: [
+            _MenuItem(
+              icon: Icons.monetization_on_rounded,
+              iconColor: AppTheme.gold,
+              title: 'Dompet Saya',
+              trailing: '0 Koin',
+              onTap: () => _showComingSoon(context, 'Dompet'),
+            ),
+            const Divider(color: AppTheme.divider, height: 0.5, indent: 52),
+            _MenuItem(
+              icon: Icons.card_giftcard_rounded,
+              iconColor: AppTheme.accent,
+              title: 'Dapatkan Hadiah',
+              trailing: '+10',
+              onTap: () => _showComingSoon(context, 'Hadiah'),
+            ),
+            const Divider(color: AppTheme.divider, height: 0.5, indent: 52),
+            _MenuItem(
+              icon: Icons.history_rounded,
+              iconColor: AppTheme.secondary,
+              title: 'Riwayat Tontonan',
+              onTap: () {
+                // Navigate to watchlist tab via parent
+                _showComingSoon(context, 'Riwayat — buka tab Daftarku');
+              },
+            ),
+            const Divider(color: AppTheme.divider, height: 0.5, indent: 52),
+            _MenuItem(
+              icon: Icons.download_rounded,
+              iconColor: AppTheme.success,
+              title: 'Unduhan',
+              onTap: () => _showComingSoon(context, 'Unduhan'),
+            ),
+            const Divider(color: AppTheme.divider, height: 0.5, indent: 52),
+            _MenuItem(
+              icon: Icons.language_rounded,
+              iconColor: AppTheme.textSecondary,
+              title: 'Bahasa',
+              trailing: 'Indonesia',
+              onTap: () => _showComingSoon(context, 'Bahasa'),
+            ),
+            const Divider(color: AppTheme.divider, height: 0.5, indent: 52),
+            _MenuItem(
+              icon: Icons.info_outline_rounded,
+              iconColor: AppTheme.textSecondary,
+              title: 'Tentang Aplikasi',
+              trailing: _appVersion,
+              onTap: () => _showAboutDialog(context),
+            ),
+            const Divider(color: AppTheme.divider, height: 0.5, indent: 52),
+            _MenuItem(
+              icon: Icons.system_update_rounded,
+              iconColor: AppTheme.trending,
+              title: 'Cek Pembaruan',
+              onTap: () => _checkUpdate(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogoutButton(BuildContext context) {
+    return Consumer<AuthService>(
+      builder: (context, authService, _) {
+        if (!authService.isLoggedIn) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _confirmLogout(context),
+              icon: const Icon(Icons.logout_rounded, size: 18),
+              label: const Text('Keluar'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.error,
+                side: const BorderSide(color: AppTheme.error, width: 0.5),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.button),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _navigateToLogin(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
+  }
+
+  void _showComingSoon(BuildContext context, String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$feature — Segera Hadir'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        title: const Text(
+          'JagatFilm',
+          style: TextStyle(color: AppTheme.textPrimary),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Versi: $_appVersion',
+              style: const TextStyle(color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            const Text(
+              'Streaming drama pendek gratis dari 25+ provider.',
+              style: TextStyle(color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            const Text(
+              '© 2026 JagatFilm',
+              style: TextStyle(color: AppTheme.textTertiary, fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Tutup'),
+          ),
         ],
       ),
     );
   }
 
-  void _showLogoutDialog(BuildContext context, AuthService auth) {
+  Future<void> _checkUpdate(BuildContext context) async {
+    try {
+      await UpdateService.checkForUpdate(context);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal memeriksa pembaruan')),
+        );
+      }
+    }
+  }
+
+  void _confirmLogout(BuildContext context) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
-        title: const Text('Keluar'),
-        content: const Text('Yakin ingin keluar dari akun?'),
+        backgroundColor: AppTheme.surface,
+        title: const Text(
+          'Keluar?',
+          style: TextStyle(color: AppTheme.textPrimary),
+        ),
+        content: const Text(
+          'Kamu akan keluar dari akun ini.',
+          style: TextStyle(color: AppTheme.textSecondary),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Batal'),
           ),
-          FilledButton(
+          TextButton(
             onPressed: () {
-              auth.logout();
               Navigator.pop(ctx);
+              context.read<AuthService>().logout();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Berhasil keluar')),
+              );
             },
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Keluar'),
+            child: const Text(
+              'Keluar',
+              style: TextStyle(color: AppTheme.error),
+            ),
           ),
         ],
       ),
@@ -237,209 +585,99 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-/// Halaman Cek Pembaruan
-class UpdateScreen extends StatefulWidget {
-  const UpdateScreen({super.key});
+/// 2x2 benefit card.
+class _BenefitCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
 
-  @override
-  State<UpdateScreen> createState() => _UpdateScreenState();
-}
-
-class _UpdateScreenState extends State<UpdateScreen> {
-  bool _isChecking = true;
-  String _currentVersion = '';
-  String _currentCode = '';
-  String? _newVersion;
-  String? _changelog;
-  String? _apkUrl;
-  String? _error;
-  bool _isUpToDate = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkUpdate();
-  }
-
-  Future<void> _checkUpdate() async {
-    setState(() {
-      _isChecking = true;
-      _error = null;
-      _isUpToDate = false;
-      _newVersion = null;
-    });
-
-    try {
-      final appInfo = await UpdateService.getAppVersion();
-      _currentVersion = appInfo['version'] ?? '?';
-      _currentCode = appInfo['code'] ?? '0';
-
-      final result = await UpdateService.getUpdateInfo();
-
-      if (result == null) {
-        // null = network error or parse error, NOT "up to date"
-        setState(() {
-          _error = 'Tidak dapat terhubung ke server. Periksa koneksi internet.';
-          _isChecking = false;
-        });
-        return;
-      }
-
-      final currentCode = int.tryParse(_currentCode) ?? 0;
-      final remoteCode = result['versionCode'] as int? ?? 0;
-
-      if (remoteCode > currentCode) {
-        setState(() {
-          _newVersion = result['version'] as String? ?? '';
-          _changelog = result['changelog'] as String? ?? '';
-          _apkUrl = result['apk_url'] as String? ?? '';
-          _isChecking = false;
-        });
-      } else {
-        setState(() {
-          _isUpToDate = true;
-          _isChecking = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _error = 'Gagal memeriksa pembaruan. Coba lagi nanti.';
-        _isChecking = false;
-      });
-    }
-  }
+  const _BenefitCard({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Cek Pembaruan')),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: _buildContent(),
-        ),
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: AppTheme.accent, size: 24),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: AppFontSize.micro + 1,
+              fontWeight: FontWeight.w500,
+              height: 1.3,
+            ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  Widget _buildContent() {
-    if (_isChecking) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(color: Color(0xFF6C63FF)),
-          const SizedBox(height: 16),
-          const Text('Memeriksa pembaruan...',
-              style: TextStyle(color: Colors.white70)),
-          const SizedBox(height: 8),
-          Text('Versi saat ini: $_currentVersion',
-              style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-        ],
-      );
-    }
+/// Menu list item.
+class _MenuItem extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String? trailing;
+  final VoidCallback onTap;
 
-    if (_error != null) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.wifi_off_rounded, size: 48, color: Colors.orange),
-          const SizedBox(height: 16),
-          Text(_error!,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[400])),
-          const SizedBox(height: 16),
-          FilledButton(onPressed: _checkUpdate, child: const Text('Coba Lagi')),
-        ],
-      );
-    }
+  const _MenuItem({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    this.trailing,
+    required this.onTap,
+  });
 
-    if (_isUpToDate) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.check_circle_rounded, size: 64, color: Colors.green),
-          const SizedBox(height: 16),
-          const Text('Aplikasi sudah terbaru!',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text('Versi $_currentVersion (build $_currentCode)',
-              style: TextStyle(color: Colors.grey[400], fontSize: 13)),
-          const SizedBox(height: 24),
-          OutlinedButton(
-            onPressed: _checkUpdate,
-            style: OutlinedButton.styleFrom(foregroundColor: Colors.white70),
-            child: const Text('Periksa Lagi'),
-          ),
-        ],
-      );
-    }
-
-    // Update tersedia
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.system_update_rounded,
-            size: 64, color: Color(0xFF6C63FF)),
-        const SizedBox(height: 16),
-        const Text('Update Tersedia!',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFF6C63FF).withAlpha(30),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text('Versi $_newVersion',
-              style: const TextStyle(
-                  color: Color(0xFF6C63FF), fontWeight: FontWeight.w600)),
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md + 2,
         ),
-        const SizedBox(height: 16),
-        if (_changelog != null && _changelog!.isNotEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A1A2E),
-              borderRadius: BorderRadius.circular(8),
+        child: Row(
+          children: [
+            Icon(icon, color: iconColor, size: 20),
+            const SizedBox(width: AppSpacing.lg),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: AppFontSize.body,
+                ),
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Perubahan:',
-                    style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                Text(_changelog!,
-                    style: TextStyle(color: Colors.grey[300], fontSize: 13)),
-              ],
+            if (trailing != null)
+              Text(
+                trailing!,
+                style: const TextStyle(
+                  color: AppTheme.textTertiary,
+                  fontSize: AppFontSize.caption,
+                ),
+              ),
+            const SizedBox(width: AppSpacing.sm),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppTheme.textTertiary,
+              size: 20,
             ),
-          ),
-        const SizedBox(height: 8),
-        Text('Versi saat ini: $_currentVersion (build $_currentCode)',
-            style: TextStyle(color: Colors.grey[500], fontSize: 11)),
-        const SizedBox(height: 24),
-        FilledButton.icon(
-          onPressed: () {
-            if (_apkUrl != null && _apkUrl!.isNotEmpty) {
-              UpdateService.openDownloadUrl(context, _apkUrl!);
-            }
-          },
-          icon: const Icon(Icons.download_rounded),
-          label: const Text('Update Sekarang'),
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF6C63FF),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          ),
+          ],
         ),
-        const SizedBox(height: 12),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('Nanti', style: TextStyle(color: Colors.grey[500])),
-        ),
-      ],
+      ),
     );
   }
 }

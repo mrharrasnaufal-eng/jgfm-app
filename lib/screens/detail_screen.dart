@@ -2,8 +2,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import '../models/drama.dart';
+import '../models/watchlist_item.dart';
 import '../services/api_service.dart';
+import '../services/watchlist_service.dart';
+import '../theme/app_theme.dart';
 import 'player_screen.dart';
 
 class DetailScreen extends StatefulWidget {
@@ -205,6 +209,10 @@ class _DetailScreenState extends State<DetailScreen> {
                             Icons.category_outlined, drama.genres.first),
                     ],
                   ),
+                  const SizedBox(height: 12),
+
+                  // Watchlist button
+                  _buildWatchlistButton(context),
                   const SizedBox(height: 16),
 
                   // Genres
@@ -319,6 +327,69 @@ class _DetailScreenState extends State<DetailScreen> {
           const SliverToBoxAdapter(child: SizedBox(height: 32)),
         ],
       ),
+    );
+  }
+
+  Widget _buildWatchlistButton(BuildContext context) {
+    return Consumer<WatchlistService>(
+      builder: (context, watchlistService, _) {
+        final isInWatchlist = watchlistService.isInWatchlist(widget.drama.id);
+
+        return Row(
+          children: [
+            OutlinedButton.icon(
+              onPressed: () {
+                if (isInWatchlist) {
+                  watchlistService.remove(widget.drama.id);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Dihapus dari Daftarku'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                } else {
+                  watchlistService.add(WatchlistItem(
+                    dramaId: widget.drama.id,
+                    title: widget.drama.title,
+                    cover: widget.drama.cover,
+                    genre: widget.drama.genre,
+                    source: widget.drama.source,
+                    totalEpisodes: widget.drama.totalEpisodes,
+                  ));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Ditambahkan ke Daftarku'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+              icon: Icon(
+                isInWatchlist
+                    ? Icons.bookmark_rounded
+                    : Icons.bookmark_border_rounded,
+                size: 18,
+              ),
+              label: Text(isInWatchlist ? 'Di Daftarku' : 'Simpan'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor:
+                    isInWatchlist ? AppTheme.accent : AppTheme.textSecondary,
+                side: BorderSide(
+                  color: isInWatchlist
+                      ? AppTheme.accent.withOpacity(0.5)
+                      : AppTheme.divider,
+                  width: 1,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

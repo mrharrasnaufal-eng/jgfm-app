@@ -11,11 +11,13 @@ import 'models/app_remote_config.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'screens/maintenance_screen.dart';
-import 'screens/profile_screen.dart';
 import 'screens/search_screen.dart';
 import 'services/auth_service.dart';
+import 'services/coin_service.dart';
+import 'services/history_service.dart';
 import 'services/remote_config_service.dart';
 import 'services/update_service.dart';
+import 'services/watchlist_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/remote_config_popup.dart';
 
@@ -66,8 +68,13 @@ class JagatFilmApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthService()..loadUser(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthService()..loadUser()),
+        ChangeNotifierProvider(create: (_) => WatchlistService()),
+        ChangeNotifierProvider(create: (_) => HistoryService()),
+        ChangeNotifierProvider(create: (_) => CoinService()),
+      ],
       child: MaterialApp(
         title: 'JagatFilm',
         debugShowCheckedModeBanner: false,
@@ -204,10 +211,7 @@ class _MainScreenState extends State<MainScreen> {
         // Profile is handled by MainShell bottom nav
         return;
       case 'page:update':
-        await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const UpdateScreen()),
-        );
+        await UpdateService.checkForUpdate(context);
         return;
       case 'page:login':
         await Navigator.push(
