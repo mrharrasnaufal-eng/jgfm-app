@@ -124,7 +124,7 @@ class CoinScreen extends StatelessWidget {
             icon: Icons.play_circle_outline_rounded,
             iconColor: AppTheme.accent,
             title: 'Tonton Iklan',
-            reward: '+10',
+            reward: '+1',
             trailing: _MissionAction(
               label: '▶',
               onTap: () => _watchAd(context),
@@ -231,7 +231,7 @@ class CoinScreen extends StatelessWidget {
           child: Column(
             children: [
               const Text(
-                '🎬 Tonton Iklan Sekarang — Dapat 10 Koin',
+                '🎬 Tonton Iklan Sekarang — Dapat 1 Koin',
                 style: TextStyle(
                   color: AppTheme.textPrimary,
                   fontSize: AppFontSize.body,
@@ -277,12 +277,26 @@ class CoinScreen extends StatelessWidget {
   static Future<void> _watchAd(BuildContext context) async {
     final rewarded = await AdService.showRewarded(context);
     if (rewarded && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('🎉 +10 Koin berhasil diklaim!'),
-          duration: Duration(seconds: 2),
-        ),
-      );
+      // Earn 1 koin from backend
+      final coinService = Provider.of<CoinService>(context, listen: false);
+      final success = await coinService.earnFromAd();
+      if (context.mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('🎉 +1 Koin! Saldo: ${coinService.balance} Koin'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(coinService.lastError ?? 'Gagal mendapat koin'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
     }
   }
 }

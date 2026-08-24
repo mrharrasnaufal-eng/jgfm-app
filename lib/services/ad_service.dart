@@ -264,7 +264,7 @@ class _InAppAdScreenState extends State<_InAppAdScreen> {
                     ),
                     SizedBox(width: 4),
                     Text(
-                      '+10 Koin',
+                      '+1 Koin',
                       style: TextStyle(
                         color: AppTheme.gold,
                         fontSize: 12,
@@ -338,7 +338,7 @@ class _InAppAdScreenState extends State<_InAppAdScreen> {
               Icon(Icons.check_rounded, color: Colors.black, size: 16),
               SizedBox(width: 4),
               Text(
-                'Klaim +10 Koin',
+                'Klaim +1 Koin',
                 style: TextStyle(
                   color: Colors.black,
                   fontSize: 12,

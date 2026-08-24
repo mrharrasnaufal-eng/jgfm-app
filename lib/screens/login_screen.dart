@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../services/coin_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -48,7 +49,15 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (error == null) {
-      if (mounted) Navigator.pop(context);
+      // Link coins to user account after login
+      if (mounted) {
+        final coinService = Provider.of<CoinService>(context, listen: false);
+        final auth = Provider.of<AuthService>(context, listen: false);
+        if (auth.user != null) {
+          coinService.linkToUser(auth.user!.uid);
+        }
+        Navigator.pop(context);
+      }
     } else {
       setState(() => _errorMessage = error);
     }
