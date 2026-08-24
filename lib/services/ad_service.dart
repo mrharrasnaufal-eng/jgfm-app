@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import '../theme/app_theme.dart';
 import '../utils/constants.dart';
 
-/// Adsterra ad service using url_launcher + overlay screens.
+/// Adsterra ad service — ALL ads render in-app via WebView.
+/// NO external browser redirect.
 ///
-/// - Interstitial (Social Bar): countdown overlay → opens ad in browser.
-/// - Rewarded (Smartlink): opens ad URL, user returns → earns coins.
-///
-/// No extra native dependencies needed — uses url_launcher (already in pubspec).
+/// - Interstitial: fullscreen WebView, skip button after 5 seconds.
+/// - Rewarded: fullscreen WebView, claim button after 8 seconds.
 class AdService {
-  /// Adsterra Smartlink URL (rewarded ad — earn coins).
+  /// Adsterra Smartlink URL (monetization).
   static const String smartlinkUrl =
       'https://www.profitableratecpmnetwork.com/di3wty1wyn?key=c47e33c0ab9d356979cc624ac0f44579';
+
+  /// Adsterra Social Bar script URL.
+  static const String socialBarScript =
+      'https://pl31014943.profitableratecpmnetwork.com/66/6c/7c/666c7ce659a3b0bde35db22bfcdca692.js';
 
   /// Track episode count for interstitial frequency.
   static int _episodeCounter = 0;
@@ -27,20 +30,21 @@ class AdService {
     return _episodeCounter % _interstitialFrequency == 0;
   }
 
-  /// Reset counter (e.g., on app restart).
+  /// Reset counter.
   static void resetCounter() => _episodeCounter = 0;
 
-  /// Show interstitial ad overlay (5 seconds countdown then auto-close).
-  /// Opens smartlink in background for monetization.
+  /// Show interstitial ad (WebView in-app, skip after 5 seconds).
   static Future<bool> showInterstitial(BuildContext context) async {
     if (!context.mounted) return false;
-
     try {
       final result = await Navigator.push<bool>(
         context,
         PageRouteBuilder(
           opaque: true,
-          pageBuilder: (_, __, ___) => const _InterstitialOverlay(),
+          pageBuilder: (_, __, ___) => const _InAppAdScreen(
+            skipDelay: 5,
+            isRewarded: false,
+          ),
           transitionsBuilder: (_, animation, __, child) {
             return FadeTransition(opacity: animation, child: child);
           },
@@ -53,17 +57,18 @@ class AdService {
     }
   }
 
-  /// Show rewarded ad — opens Smartlink in external browser.
-  /// Returns true (reward granted) — user tapped the button.
+  /// Show rewarded ad (WebView in-app, claim after 8 seconds).
   static Future<bool> showRewarded(BuildContext context) async {
     if (!context.mounted) return false;
-
     try {
       final result = await Navigator.push<bool>(
         context,
         PageRouteBuilder(
           opaque: true,
-          pageBuilder: (_, __, ___) => const _RewardedOverlay(),
+          pageBuilder: (_, __, ___) => const _InAppAdScreen(
+            skipDelay: 8,
+            isRewarded: true,
+          ),
           transitionsBuilder: (_, animation, __, child) {
             return FadeTransition(opacity: animation, child: child);
           },
@@ -75,38 +80,97 @@ class AdService {
       return false;
     }
   }
-
-  /// Open smartlink URL in external browser.
-  static Future<void> _openSmartlink() async {
-    try {
-      final uri = Uri.parse(smartlinkUrl);
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (_) {
-      // Silent fail
-    }
-  }
 }
 
-/// Interstitial ad overlay — shows for 5 seconds then auto-closes.
-class _InterstitialOverlay extends StatefulWidget {
-  const _InterstitialOverlay();
+/// Fullscreen in-app WebView ad screen.
+/// Loads Adsterra Smartlink inside WebView — stays in-app.
+/// Skip/Claim button appears after [skipDelay] seconds.
+class _InAppAdScreen extends StatefulWidget {
+  final int skipDelay;
+  final bool isRewarded;
+
+  const _InAppAdScreen({
+    required this.skipDelay,
+    required this.isRewarded,
+  });
 
   @override
-  State<_InterstitialOverlay> createState() => _InterstitialOverlayState();
+  State<_InAppAdScreen> createState() => _InAppAdScreenState();
 }
 
-class _InterstitialOverlayState extends State<_InterstitialOverlay> {
-  int _secondsRemaining = 5;
+class _InAppAdScreenState extends State<_InAppAdScreen> {
+  late final WebViewController _webController;
+  int _secondsRemaining = 0;
   bool _canClose = false;
+  bool _webViewReady = false;
 
   @override
   void initState() {
     super.initState();
+    _secondsRemaining = widget.skipDelay;
+    _initWebView();
     _startCountdown();
-    // Open ad link in background after short delay
-    Future.delayed(const Duration(milliseconds: 500), () {
-      AdService._openSmartlink();
-    });
+  }
+
+  void _initWebView() {
+    _webController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (_) {
+            if (mounted) setState(() => _webViewReady = true);
+          },
+          // Keep all navigation inside the WebView — never open external browser
+          onNavigationRequest: (request) {
+            return NavigationDecision.navigate;
+          },
+        ),
+      )
+      ..setBackgroundColor(Colors.black)
+      ..loadHtmlString(_buildAdHtml());
+  }
+
+  String _buildAdHtml() {
+    return '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #0a0a0a;
+      overflow: hidden;
+    }
+    .ad-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="ad-container">
+    <iframe src="${AdService.smartlinkUrl}" 
+            allowfullscreen 
+            allow="autoplay; encrypted-media"
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation">
+    </iframe>
+  </div>
+  <script src="${AdService.socialBarScript}" async></script>
+</body>
+</html>
+''';
   }
 
   void _startCountdown() {
@@ -121,308 +185,198 @@ class _InterstitialOverlayState extends State<_InterstitialOverlay> {
         }
       });
 
-      if (_secondsRemaining <= 0) {
-        // Auto-close after 1 second
-        await Future.delayed(const Duration(seconds: 1));
-        if (mounted) Navigator.pop(context, true);
-        return false;
-      }
-
-      return true;
+      return _secondsRemaining > 0;
     });
+  }
+
+  void _close({bool rewarded = false}) {
+    Navigator.pop(context, rewarded || !widget.isRewarded);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // Ad content area
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.xl),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: AppTheme.accent.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.campaign_rounded,
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // WebView — fills entire screen
+          Positioned.fill(
+            child: WebViewWidget(controller: _webController),
+          ),
+
+          // Loading indicator while WebView loads
+          if (!_webViewReady)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black,
+                child: const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(
                         color: AppTheme.accent,
-                        size: 40,
+                        strokeWidth: 2,
                       ),
+                      SizedBox(height: 16),
+                      Text(
+                        'Memuat iklan...',
+                        style: TextStyle(
+                          color: AppTheme.textTertiary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+          // Top bar — countdown / skip button
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            right: 16,
+            child: _canClose
+                ? _buildActionButton()
+                : _buildCountdown(),
+          ),
+
+          // Rewarded label at top
+          if (widget.isRewarded)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 8,
+              left: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.monetization_on_rounded,
+                      color: AppTheme.gold,
+                      size: 14,
                     ),
-                    const SizedBox(height: AppSpacing.xl),
-                    const Text(
-                      'Sponsor',
+                    SizedBox(width: 4),
+                    Text(
+                      '+10 Koin',
                       style: TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: AppFontSize.h2,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    const Text(
-                      'Iklan dari partner kami',
-                      style: TextStyle(
-                        color: AppTheme.textTertiary,
-                        fontSize: AppFontSize.body,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xxl),
-                    // Progress indicator
-                    SizedBox(
-                      width: 200,
-                      child: LinearProgressIndicator(
-                        value: (5 - _secondsRemaining) / 5,
-                        backgroundColor: AppTheme.divider,
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                            AppTheme.accent),
-                        minHeight: 3,
+                        color: AppTheme.gold,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-
-            // Top-right countdown / close button
-            Positioned(
-              top: 12,
-              right: 16,
-              child: _canClose
-                  ? GestureDetector(
-                      onTap: () => Navigator.pop(context, true),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.card,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.close, color: Colors.white, size: 16),
-                            SizedBox(width: 4),
-                            Text(
-                              'Tutup',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  : Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.card,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '${_secondsRemaining}s',
-                        style: const TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
-}
 
-/// Rewarded ad overlay — user taps to watch ad, waits, gets reward.
-class _RewardedOverlay extends StatefulWidget {
-  const _RewardedOverlay();
-
-  @override
-  State<_RewardedOverlay> createState() => _RewardedOverlayState();
-}
-
-class _RewardedOverlayState extends State<_RewardedOverlay> {
-  bool _adOpened = false;
-  int _secondsRemaining = 5;
-  bool _rewardReady = false;
-
-  void _openAd() {
-    setState(() => _adOpened = true);
-    AdService._openSmartlink();
-    _startCountdown();
-  }
-
-  void _startCountdown() {
-    Future.doWhile(() async {
-      await Future.delayed(const Duration(seconds: 1));
-      if (!mounted) return false;
-
-      setState(() {
-        _secondsRemaining--;
-        if (_secondsRemaining <= 0) {
-          _rewardReady = true;
-        }
-      });
-
-      return _secondsRemaining > 0;
-    });
-  }
-
-  void _claimReward() {
-    Navigator.pop(context, true);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Coin icon
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: AppTheme.gold.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.monetization_on_rounded,
-                    color: AppTheme.gold,
-                    size: 44,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                const Text(
-                  'Tonton Iklan',
-                  style: TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: AppFontSize.h2,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                const Text(
-                  'Tonton iklan singkat untuk mendapat +10 Koin',
-                  style: TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: AppFontSize.body,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: AppSpacing.xxl),
-
-                if (!_adOpened) ...[
-                  // Button to open ad
-                  FilledButton.icon(
-                    onPressed: _openAd,
-                    icon: const Icon(Icons.play_arrow_rounded),
-                    label: const Text('Tonton Sekarang'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.accent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 14,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text(
-                      'Nanti saja',
-                      style: TextStyle(color: AppTheme.textTertiary),
-                    ),
-                  ),
-                ] else if (!_rewardReady) ...[
-                  // Waiting countdown
-                  const Text(
-                    'Iklan sedang ditampilkan...',
-                    style: TextStyle(
-                      color: AppTheme.textTertiary,
-                      fontSize: AppFontSize.caption,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  SizedBox(
-                    width: 200,
-                    child: LinearProgressIndicator(
-                      value: (5 - _secondsRemaining) / 5,
-                      backgroundColor: AppTheme.divider,
-                      valueColor:
-                          const AlwaysStoppedAnimation<Color>(AppTheme.gold),
-                      minHeight: 4,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Koin siap dalam ${_secondsRemaining}s',
-                    style: const TextStyle(
-                      color: AppTheme.textTertiary,
-                      fontSize: AppFontSize.caption,
-                    ),
-                  ),
-                ] else ...[
-                  // Reward ready
-                  const Text(
-                    '🎉 +10 Koin!',
-                    style: TextStyle(
-                      color: AppTheme.gold,
-                      fontSize: AppFontSize.h1,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  FilledButton.icon(
-                    onPressed: _claimReward,
-                    icon: const Icon(Icons.check_rounded),
-                    label: const Text('Klaim Koin'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.gold,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 14,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+  Widget _buildCountdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              value: (widget.skipDelay - _secondsRemaining) / widget.skipDelay,
+              strokeWidth: 2,
+              color: AppTheme.textSecondary,
+              backgroundColor: AppTheme.divider,
             ),
           ),
-        ),
+          const SizedBox(width: 6),
+          Text(
+            '${_secondsRemaining}s',
+            style: const TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  Widget _buildActionButton() {
+    if (widget.isRewarded) {
+      // Rewarded: show "Klaim Koin" button
+      return GestureDetector(
+        onTap: () => _close(rewarded: true),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppTheme.gold,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.gold.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.check_rounded, color: Colors.black, size: 16),
+              SizedBox(width: 4),
+              Text(
+                'Klaim +10 Koin',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      // Interstitial: show "Skip" button
+      return GestureDetector(
+        onTap: () => _close(),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.7),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppTheme.divider, width: 0.5),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.close_rounded, color: Colors.white, size: 14),
+              SizedBox(width: 4),
+              Text(
+                'Lewati',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
   }
 }

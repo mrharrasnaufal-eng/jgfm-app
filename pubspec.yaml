@@ -1,7 +1,7 @@
 name: jagatfilm
 description: JagatFilm - Streaming Drama Indonesia
 publish_to: 'none'
-version: 2.2.0+18
+version: 2.2.1+19
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -19,6 +19,7 @@ dependencies:
   flutter_staggered_grid_view: 0.7.0
   url_launcher: 6.2.6
   package_info_plus: 8.0.2
+  webview_flutter: 4.8.0
 
 dev_dependencies:
   flutter_test:
