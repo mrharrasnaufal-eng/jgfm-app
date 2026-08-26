@@ -863,3 +863,22 @@ Versi target: **v2.4.0+24** (dari v2.3.3+23).
   - `desugar_jdk_libs 2.1.4` butuh AGP 8.0+ (Flutter stable pakai AGP 8.1+ untuk compileSdk 35) → kompatibel.
 - ⚠️ CATATAN untuk sesi berikutnya: `build.gradle.kts` yang BENAR sekarang WAJIB menyertakan
   desugaring selama `flutter_local_notifications` dipakai. Jangan hapus dua baris itu.
+
+### ✅ DEPLOY BERHASIL & TERVERIFIKASI (v2.4.0+25, 26 Aug 2026 ~19:25 UTC)
+- **Commit HEAD:** `f3552a4` (fix desugaring). Commit fitur: `60302c7`.
+- **GitHub Actions run `33004336746`:** conclusion **success**. SEMUA step hijau termasuk
+  analyze, Build Release APK, artifact, Deploy to aaPanel, Move files on server.
+- **Auto-deploy SSH kali ini BERHASIL** (beda dari isu lama v1.0.7+8) — file server ter-update.
+- **Verifikasi publik:**
+  - `version.json` publik & server: version `2.4.0`, versionCode `25`. ✅
+  - APK server & publik: HTTP 200, size 62.209.208 bytes, timestamp 19:24 UTC. ✅
+  - **SHA-256 publik = server:** `b75507bfd70a63f4f10683fab251389c10b9abe07454fd9f17077ce937c94609`. ✅
+  - Cache: `cache-control: no-store`, `cdn-cache-control: no-store`, `cf-cache-status: BYPASS`. ✅
+  - ZIP integrity OK; APK Signing Block v2/v3 ada; AndroidManifest ada. ✅
+  - Manifest APK berisi `POST_NOTIFICATIONS` + `INTERNET` + `usesCleartextTraffic` + package `com.jagatfilm.jagatfilm`. ✅
+  - `masterpanel.jagatfilm.com/api/config` HTTP 200; `/api/notifications` HTTP 200 `{"success":true,"data":[]}`. ✅
+  - Git clean, `HEAD == origin/main` pada `f3552a4`. ✅
+- **Versi live sekarang: v2.4.0 build 25.**
+- **Belum dites manual (butuh device):** buat notif di panel admin → buka app → notif muncul di
+  status bar → tap → navigasi ke halaman/URL sesuai action. (Backend & pipeline sudah terverifikasi.)
+- ⚠️ **TOKEN GitHub `ghp_9iA3gdWev...` terekspos lagi di sesi ini — owner WAJIB revoke/rotate sekarang.**
