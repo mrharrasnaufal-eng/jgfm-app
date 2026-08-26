@@ -31,6 +31,27 @@ jobs:
           rm -rf android
           flutter create --platforms=android --org com.jagatfilm --project-name jagatfilm .
 
+      - name: Apply custom notification native files
+        run: |
+          # Copy layout XML
+          mkdir -p android/app/src/main/res/layout
+          mkdir -p android/app/src/main/res/drawable
+          cp android-native/res/layout/notification_collapsed.xml android/app/src/main/res/layout/
+          cp android-native/res/layout/notification_expanded.xml android/app/src/main/res/layout/
+          cp android-native/res/drawable/bg_button_pink.xml android/app/src/main/res/drawable/
+          cp android-native/res/drawable/bg_button_pink_large.xml android/app/src/main/res/drawable/
+
+          # Copy Kotlin files (overwrite generated MainActivity, add helper)
+          KOTLIN_DIR="android/app/src/main/kotlin/com/jagatfilm/jagatfilm"
+          mkdir -p "$KOTLIN_DIR"
+          cp android-native/kotlin/MainActivity.kt "$KOTLIN_DIR/"
+          cp android-native/kotlin/CustomNotificationHelper.kt "$KOTLIN_DIR/"
+
+          echo "✅ Custom notification native files applied"
+          ls -la "$KOTLIN_DIR"
+          ls -la android/app/src/main/res/layout/notification_*
+          ls -la android/app/src/main/res/drawable/bg_button_*
+
       - name: Decode google-services.json
         run: |
           echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 --decode > android/app/google-services.json
@@ -133,6 +154,7 @@ jobs:
 
           dependencies {
               coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+              implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
           }
 
           flutter {

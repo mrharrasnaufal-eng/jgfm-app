@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -98,6 +99,10 @@ class NotificationService {
   static const String _channelName = 'Notifikasi JagatFilm';
   static const String _channelDesc =
       'Info drama baru, event, dan promosi JagatFilm';
+
+  /// MethodChannel for native custom notification (DramaBox-style layout).
+  static const MethodChannel _nativeChannel =
+      MethodChannel('com.jagatfilm.jagatfilm/notifications');
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -224,67 +229,81 @@ class NotificationService {
 
   Future<void> _show(int notifId, AppNotification notif) async {
     try {
-      // Determine notification style: BigPicture if image_url available, else BigText.
-      StyleInformation styleInfo;
-      if (notif.imageUrl.isNotEmpty) {
-        // Try to download the image for BigPictureStyle.
-        ByteArrayAndroidBitmap? bigPicture;
-        try {
-          final imgResponse = await http.get(
-            Uri.parse(notif.imageUrl),
-          ).timeout(const Duration(seconds: 5));
-          if (imgResponse.statusCode == 200 && imgResponse.bodyBytes.isNotEmpty) {
-            bigPicture = ByteArrayAndroidBitmap(imgResponse.bodyBytes);
-          }
-        } catch (_) {
-          // Image download failed — fall back to BigText.
-        }
-
-        if (bigPicture != null) {
-          styleInfo = BigPictureStyleInformation(
-            bigPicture,
-            largeIcon: bigPicture,
-            contentTitle: notif.title,
-            summaryText: notif.message,
-            hideExpandedLargeIcon: false,
-          );
-        } else {
-          styleInfo = BigTextStyleInformation(notif.message);
-        }
-      } else {
-        styleInfo = BigTextStyleInformation(notif.message);
-      }
-
       // Payload = action (page:xxx | external:<url>). Empty = just open app.
       String payload = notif.action;
       if (notif.action == 'external' && notif.externalUrl.isNotEmpty) {
         payload = 'external:${notif.externalUrl}';
       }
 
-      final androidDetails = AndroidNotificationDetails(
-        _channelId,
-        _channelName,
-        channelDescription: _channelDesc,
-        importance: Importance.high,
-        priority: Priority.high,
-        styleInformation: styleInfo,
-        actions: <AndroidNotificationAction>[
-          AndroidNotificationAction(
-            'action_open',
-            'Tonton',
-            showsUserInterface: true,
-          ),
-        ],
-      );
-      final details = NotificationDetails(android: androidDetails);
+      // Try native custom notification (DramaBox-style: poster + text + pink button).
+      bool nativeSuccess = false;
+      try {
+        final result = await _nativeChannel.invokeMethod('showCustomNotification', {
+          'id': notifId,
+          'title': notif.title,
+          'message': notif.message,
+          'image_url': notif.imageUrl.isNotEmpty ? notif.imageUrl : null,
+          'action': payload.isNotEmpty ? payload : null,
+        });
+        nativeSuccess = result == true;
+      } catch (e) {
+        debugPrint('Native notification failed (using fallback): $e');
+      }
 
-      await _plugin.show(
-        notifId,
-        notif.title,
-        notif.message,
-        details,
-        payload: payload,
-      );
+      // Fallback: flutter_local_notifications (standard style).
+      if (!nativeSuccess) {
+        StyleInformation styleInfo;
+        if (notif.imageUrl.isNotEmpty) {
+          ByteArrayAndroidBitmap? bigPicture;
+          try {
+            final imgResponse = await http.get(
+              Uri.parse(notif.imageUrl),
+            ).timeout(const Duration(seconds: 5));
+            if (imgResponse.statusCode == 200 && imgResponse.bodyBytes.isNotEmpty) {
+              bigPicture = ByteArrayAndroidBitmap(imgResponse.bodyBytes);
+            }
+          } catch (_) {}
+
+          if (bigPicture != null) {
+            styleInfo = BigPictureStyleInformation(
+              bigPicture,
+              largeIcon: bigPicture,
+              contentTitle: notif.title,
+              summaryText: notif.message,
+              hideExpandedLargeIcon: false,
+            );
+          } else {
+            styleInfo = BigTextStyleInformation(notif.message);
+          }
+        } else {
+          styleInfo = BigTextStyleInformation(notif.message);
+        }
+
+        final androidDetails = AndroidNotificationDetails(
+          _channelId,
+          _channelName,
+          channelDescription: _channelDesc,
+          importance: Importance.high,
+          priority: Priority.high,
+          styleInformation: styleInfo,
+          actions: <AndroidNotificationAction>[
+            AndroidNotificationAction(
+              'action_open',
+              'Tonton',
+              showsUserInterface: true,
+            ),
+          ],
+        );
+        final details = NotificationDetails(android: androidDetails);
+
+        await _plugin.show(
+          notifId,
+          notif.title,
+          notif.message,
+          details,
+          payload: payload,
+        );
+      }
     } catch (e) {
       debugPrint('NotificationService._show error: $e');
     }
