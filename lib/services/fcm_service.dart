@@ -141,7 +141,7 @@ class FCMService {
         // Store for main.dart to pick up and navigate.
         SharedPreferences.getInstance().then((prefs) {
           prefs.setString('pending_notification_action', payload);
-        }).catchError((_) => false);
+        }).catchError((_) {});
       }
     } catch (e) {
       debugPrint('FCM tap handler error: $e');
