@@ -849,3 +849,17 @@ Versi target: **v2.4.0+24** (dari v2.3.3+23).
   (analyze, signed build, artifact), lalu verifikasi publik: `version.json` v2.4.0/versionCode 24,
   APK server=public HTTP 200 + SHA-256 identik, cache BYPASS/no-store, signing block, git clean HEAD==origin/main.
 - Uji manual di device: buat notif di panel → buka app → notif muncul di status bar → tap → navigasi benar.
+
+### FIX BUILD (v2.4.0+25) — Core Library Desugaring
+- **Commit pertama `60302c7` (v2.4.0+24):** GitHub Actions run `33003678437` → analyze SUKSES,
+  tapi **Build Release APK GAGAL** di task `:app:checkReleaseAarMetadata`:
+  `Dependency ':flutter_local_notifications' requires core library desugaring to be enabled`.
+  (Asumsi awal "hanya 18+ butuh desugaring" ternyata SALAH — transitive
+  `flutter_local_notifications_android` di Flutter stable mewajibkan desugaring walau plugin di 17.2.4.)
+- **Fix (v2.4.0+25):** Aktifkan core library desugaring di template `build.gradle.kts` (workflow):
+  - `compileOptions { isCoreLibraryDesugaringEnabled = true }`
+  - `dependencies { coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4") }`
+  - Perubahan ADITIF minimal; signing/namespace/minSdk 23/buildTypes TIDAK berubah.
+  - `desugar_jdk_libs 2.1.4` butuh AGP 8.0+ (Flutter stable pakai AGP 8.1+ untuk compileSdk 35) → kompatibel.
+- ⚠️ CATATAN untuk sesi berikutnya: `build.gradle.kts` yang BENAR sekarang WAJIB menyertakan
+  desugaring selama `flutter_local_notifications` dipakai. Jangan hapus dua baris itu.
