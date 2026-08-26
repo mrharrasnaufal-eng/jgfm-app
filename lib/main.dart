@@ -15,6 +15,7 @@ import 'screens/search_screen.dart';
 import 'services/auth_service.dart';
 import 'services/coin_service.dart';
 import 'services/history_service.dart';
+import 'services/notification_service.dart';
 import 'services/remote_config_service.dart';
 import 'services/update_service.dart';
 import 'services/watchlist_service.dart';
@@ -187,11 +188,53 @@ class _MainScreenState extends State<MainScreen> {
         _automaticUpdateChecked = true;
         await UpdateService.checkForUpdate(context);
       }
+
+      // Fase 1 notifications: fetch + show local notifications (non-blocking).
+      // Guarded internally; must never crash or block the UI.
+      unawaited(_runNotificationCheck());
     } catch (_) {
       // Remote notices and updates are optional and must never crash the app.
     } finally {
       _noticesRunning = false;
     }
+  }
+
+  /// Fetch remote notifications, show them, and handle any pending tap action.
+  Future<void> _runNotificationCheck() async {
+    try {
+      // First, if the app was opened by tapping a notification, act on it.
+      final pending = await NotificationService.instance.consumePendingAction();
+      if (pending != null && pending.isNotEmpty && mounted) {
+        await _handleNotificationAction(pending);
+      }
+
+      await NotificationService.instance.checkAndShow();
+    } catch (_) {
+      // Notifications are optional — swallow all errors.
+    }
+  }
+
+  /// Handle a notification tap action. Payload forms:
+  ///   'page:home' | 'page:search' | 'page:profile' | 'page:update' | 'page:login'
+  ///   'external:<https url>'
+  Future<void> _handleNotificationAction(String payload) async {
+    if (!mounted) return;
+    if (payload.startsWith('external:')) {
+      final url = payload.substring('external:'.length);
+      final uri = Uri.tryParse(url);
+      if (uri != null &&
+          (uri.scheme == 'https' || uri.scheme == 'http') &&
+          uri.host.isNotEmpty) {
+        try {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } catch (_) {
+          // ignore
+        }
+      }
+      return;
+    }
+    // Reuse the popup action handler for page:* actions.
+    await _handlePopupAction(payload);
   }
 
   Future<void> _handlePopupAction(String action) async {

@@ -51,6 +51,9 @@ jobs:
           if ! grep -q "usesCleartextTraffic" "$MANIFEST"; then
             sed -i 's/<application/<application android:usesCleartextTraffic="true"/' "$MANIFEST"
           fi
+          if ! grep -q "android.permission.POST_NOTIFICATIONS" "$MANIFEST"; then
+            sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>' "$MANIFEST"
+          fi
 
       - name: Decode keystore
         run: |

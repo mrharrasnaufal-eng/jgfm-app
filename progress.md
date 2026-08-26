@@ -508,3 +508,344 @@ Jika redesign UI/UX (v2.0) bermasalah atau crash:
 - Blueprint redesign: `/www/wwwroot/jagatfilm.com/apk/BLUEPRINT-UIUX.md`
 - Jika redesign gagal di tahap mana pun, ROLLBACK ke v1.0.9 dan mulai ulang dari sini.
 - JANGAN hapus folder backup ini.
+
+---
+
+## SESI 11 — REDESIGN UI/UX v2.0 (23 Aug 2026, 21:00–23:50 UTC)
+
+### Rangkuman
+Redesign total UI/UX APK terinspirasi DramaBox. Dari v1.0.9 ke v2.0.5.
+
+---
+
+### Fase 0: Backend Analytics (Selesai ✅)
+**Tujuan:** Buat sistem tracking views sendiri agar tab Untukmu/Peringkat/Terbaru punya data real.
+
+**Database (PostgreSQL masterpanel_db):**
+- `drama_views` — lifetime view count per drama
+- `drama_views_daily` — daily views untuk trending 7 hari
+- `drama_first_seen` — timestamp pertama drama ditemukan (untuk tab Terbaru)
+
+**Endpoint baru (website jagatfilm.com):**
+- `POST /api/analytics/view` — APK record view saat user buka drama
+- `GET /api/dramas/popular?limit=50&page=1` — sort by view_count DESC (+ cover)
+- `GET /api/dramas/trending?days=7&limit=30` — views 7 hari terakhir (+ cover)
+- `GET /api/dramas/newest?limit=30&page=1` — sort by first_seen_at DESC
+- `GET /api/dramas/stats?ids=id1,id2,...` — batch view counts
+- `GET /api/drama/detail?id=xxx` — episode list real dari provider (BARU, fix v2.0.2)
+
+**Modifikasi:**
+- `dramas/route.ts` mergeDramas() → auto-populate drama_first_seen saat drama baru ditemukan
+- Seed: 22,298 drama di first_seen, 500 drama views random, 3500 daily records
+
+**Dependency baru website:** `pg@8.13.1`, `@types/pg@8.11.10`
+
+---
+
+### Fase 1: Foundation APK (v2.0.0+11, commit `ec2dab6`)
+**Build:** GitHub Actions #32669543604 ✅
+
+**File baru:**
+- `lib/theme/app_theme.dart` — dark theme centralized
+- `lib/utils/constants.dart` — spacing, radius, font sizes, strings, formatViews()
+- `lib/screens/main_shell.dart` — bottom nav 5 tab + IndexedStack
+- `lib/screens/home_tabs/untukmu_tab.dart` — grid 3 kolom + infinite scroll
+- `lib/screens/home_tabs/kategori_tab.dart` — filter provider/genre/sort
+- `lib/widgets/badge_pill.dart`
+- `lib/widgets/genre_pill.dart`
+- `lib/widgets/section_header.dart`
+- `lib/widgets/shimmer_grid.dart`
+- `lib/widgets/drama_card_grid.dart`
+- `lib/widgets/filter_pills.dart`
+
+**File diubah:**
+- `lib/main.dart` — routing ke MainShell, AppTheme.darkTheme
+- `lib/screens/home_screen.dart` — refactored → TabBar 4 tab wrapper
+
+---
+
+### Fase 2: Content Pages (v2.0.1+12, commit `8148ea4`)
+**Build:** GitHub Actions sukses ✅
+
+**File baru:**
+- `lib/screens/home_tabs/terbaru_tab.dart` — list vertikal drama terbaru
+- `lib/screens/home_tabs/peringkat_tab.dart` — ranking list + filter tren/populer/terbaru
+- `lib/screens/for_you_screen.dart` — feed card besar rekomendasi
+
+**File diubah:**
+- `lib/screens/search_screen.dart` — REWRITE: trending chips + history + debounce
+- `lib/screens/home_screen.dart` — placeholder diganti real tabs
+- `lib/screens/main_shell.dart` — ForYouScreen ganti placeholder
+
+---
+
+### Fix-fix Penting:
+
+#### v2.0.2+13 (commit `976cee9`) — CRITICAL FIX
+- **DetailScreen:** fetch episode list real dari `/api/drama/detail` (bukan generate 80 palsu)
+- **UntukmuTab:** default provider `shortmax` (bukan 'all' yang campur provider rusak)
+- **Endpoint baru:** `GET /api/drama/detail?id=xxx` di website
+
+#### v2.0.3+14 (commit `275e3d8`)
+- **Server:** endpoint popular/trending sekarang JOIN drama_first_seen untuk cover URL
+- Peringkat thumbnail sekarang visible
+
+#### v2.0.4+15 (commit `01043a7`)
+- **KategoriTab:** exclude provider broken (flickshort, fundrama, vigloo, dramanova)
+- **KategoriTab:** genre list sesuai data real API (Cinta, Balas Dendam, CEO, dll)
+
+#### v2.0.5+16 (commit `2b4e110`) — FINAL FIX
+- **Semua halaman** exclude broken providers: ForYou, Terbaru, Peringkat, Kategori, Search
+- Provider yang di-exclude: flickshort (stream mati + judul asing), fundrama (stream mati), vigloo, dramanova
+
+---
+
+### Provider Status (23 Aug 2026):
+| Provider | Stream | Judul ID | Status |
+|----------|--------|----------|--------|
+| shortmax | ✅ | ✅ | **Default home** |
+| reelshort | ✅ | ⚠️ Mixed | OK |
+| dramabox | ✅ | ✅ | OK |
+| melolo | ✅ | ✅ | OK |
+| netshort | ✅ | ✅ | OK |
+| flickreels | ✅ | ⚠️ Mixed | OK |
+| cashdrama | ✅ | ✅ | OK |
+| bilitv | ✅ | ✅ | OK |
+| flickshort | ❌ | ❌ Portugis | **EXCLUDED** |
+| fundrama | ❌ | ✅ | **EXCLUDED** |
+| vigloo | ❌ | - | **EXCLUDED** |
+| dramanova | ❌ | - | **EXCLUDED** |
+
+---
+
+### Bottom Nav fix (commit `fdf0bf4`):
+- SafeArea + systemNavigationBarColor #1A1A1A agar tidak overlap Android nav bar
+
+---
+
+### Status Akhir Sesi:
+- **Versi live:** v2.0.5 build 16
+- **Commit HEAD:** `2b4e110`
+- **Semua tab fungsional:** Untukmu ✅, Terbaru ✅, Peringkat ✅, Kategori ✅, Untuk Anda ✅
+- **Placeholder tersisa:** Koin (bottom nav), Daftarku (bottom nav) — Fase 3
+- **Backup v1.0.9 aman** di `/www/wwwroot/jagatfilm.com/backup/apk-stable/`
+
+### Belum dikerjakan (Fase 3+):
+- Watchlist/Daftarku (local SharedPreferences)
+- Profil redesign
+- Koin UI (coming soon)
+- Adsterra ads integration
+- Notifikasi
+
+---
+
+## SESI 12 — FASE 3 + 4 + KOIN FUNGSIONAL (24 Aug 2026, 20:00–22:00 UTC)
+
+---
+
+### Fase 3: User Features (v2.1.0+17, commit `154fe90`)
+**Build:** GitHub Actions #32772982669 ✅
+
+**File baru:**
+- `lib/models/watchlist_item.dart` — Model watchlist + progress
+- `lib/models/watch_history.dart` — Model riwayat + timeAgo
+- `lib/models/coin_transaction.dart` — Model transaksi koin
+- `lib/services/watchlist_service.dart` — CRUD watchlist (SharedPreferences)
+- `lib/services/history_service.dart` — Riwayat tontonan (max 50, SharedPrefs)
+- `lib/services/coin_service.dart` — Mock koin service (kemudian di-rewrite)
+- `lib/screens/watchlist_screen.dart` — Tab Sedang Ditonton + Riwayat
+- `lib/screens/coin_screen.dart` — Reward center UI
+
+**File diubah:**
+- `lib/screens/profile_screen.dart` — REWRITE: avatar, koin banner, benefit grid, menu
+- `lib/screens/main_shell.dart` — CoinScreen + WatchlistScreen ganti placeholder
+- `lib/main.dart` — MultiProvider (4 services)
+- `lib/screens/player_screen.dart` — Record history + update watchlist progress
+- `lib/screens/detail_screen.dart` — Tombol bookmark/watchlist
+
+---
+
+### Fase 4: Polish & Monetization (v2.2.0+18, commit `d421bec`)
+**Build:** GitHub Actions #32776696710 ✅
+
+**Fitur:**
+- `lib/services/ad_service.dart` — Adsterra interstitial + rewarded
+- UntukmuTab: 3-col grid (9 items) → Provider Spotlight → Masonry 2-col + Genre Block
+- PlayerScreen: interstitial ad setiap 3 episode
+- CoinScreen: Tonton Iklan button aktif
+- Hero animation (poster grid → detail)
+- Page transition (slide right, easeOutCubic 300ms)
+
+---
+
+### Fix: Iklan In-App (v2.2.1+19, commit `b2f5417`)
+**Build:** GitHub Actions #32778685145 ✅
+
+- Sebelumnya iklan redirect ke Chrome (tidak profesional)
+- Fix: `webview_flutter: 4.8.0` ditambah ke pubspec
+- AdService rewrite: WebView fullscreen in-app
+- Interstitial: 5 detik countdown → tombol "Lewati"
+- Rewarded: 8 detik countdown → tombol "Klaim +1 Koin"
+- Semua navigasi tetap di dalam WebView, tidak buka browser
+
+---
+
+### Koin Fungsional — Backend + API (v2.3.0+20, commit `d97606f`)
+**Build:** GitHub Actions #32782149598 ✅
+
+**Database (PostgreSQL masterpanel_db):**
+- `coin_wallets` — saldo per device_id, link ke user_id
+- `coin_transactions` — riwayat earn/spend
+- `coin_withdrawals` — request penarikan
+
+**API Endpoints (jagatfilm.com):**
+- `POST /api/coins/earn` — +1 koin per iklan (cooldown 30s, max 50/hari)
+- `GET /api/coins/balance` — saldo by device_id
+- `GET /api/coins/history` — riwayat transaksi
+- `POST /api/coins/link` — merge device ke user saat login
+- `POST /api/coins/withdraw` — penarikan (min 10.000 koin, wajib login)
+
+**APK Changes:**
+- CoinService rewrite: connect ke backend, device_id UUID auto-generate
+- CoinScreen: saldo real dari server, +1 koin per ad
+- LoginScreen: auto-link device coins ke user setelah login
+
+**Rules Koin & Iklan:**
+| Rule | Nilai |
+|------|-------|
+| 1 iklan | = 1 koin |
+| 1.000 koin | = Rp 1.000 |
+| Min withdrawal | = 10.000 koin (Rp 10.000) |
+| Max iklan/hari | = 50 |
+| Cooldown | = 30 detik |
+| Login untuk earn | Tidak perlu (device_id) |
+| Login untuk withdraw | WAJIB |
+
+**Anti-Cheat:**
+- Server validate cooldown + daily limit
+- Device ID persist di SharedPreferences
+- APK tidak bisa manipulasi saldo
+
+**Model Bisnis:**
+- Admin: ~Rp 3.2 per impression dari Adsterra
+- User: 1 koin (Rp 1) per iklan
+- Profit admin: ~Rp 2.2 per view
+- User butuh 200 hari × 50 iklan untuk withdraw pertama
+- Alternatif: koin untuk VIP/premium (tidak perlu cashout)
+
+---
+
+### Verifikasi Akhir Sesi 12:
+- **Versi live:** v2.3.0 build 20
+- **Commit HEAD:** `d97606f`
+- **APK SHA-256:** deploy berhasil, SHA match server=public
+- **Semua endpoint koin:** tested & working
+- **Iklan:** render in-app, tidak redirect browser
+- **Git:** clean, HEAD == origin/main
+- **Placeholder tersisa:** VIP benefits, withdrawal UI di APK, MasterPanel halaman koin admin
+
+
+---
+
+## FIX IKLAN — SESI 12 LANJUTAN (24 Aug 2026, 22:00–23:00 UTC)
+
+### v2.3.1+21 (commit `fe16821`) — Fake Skip Mechanism
+- Interstitial: random 10-15 detik countdown
+- Phase 1: countdown saja, tidak ada tombol
+- Phase 2: fake skip icon (⏭) top-left → buka link iklan di browser
+- Phase 3: user balik ke app → real skip (✕) muncul top-right
+- Revenue boost: forced CPC click via fake skip
+
+### v2.3.2+22 (commit `328c3b7`) — 2 Variants + Perbaikan UI
+- **Variant A** (episode 3, 9, 15...): countdown → skip asli langsung (clean, user friendly)
+- **Variant B** (episode 6, 12, 18...): countdown → fake skip → klik iklan → balik → skip asli
+- Semua tombol di posisi **kanan atas** (tidak menimpa konten iklan)
+- Countdown **mulai setelah iklan ter-load** (bukan saat screen dibuka)
+- Fake skip: icon ⏭ + "Lewati" (warna redup, tanpa border)
+- Real skip: icon ✕ + "Lewati" (warna terang, ada border putih)
+
+### v2.3.3+23 (commit `26e6d3a`) — Fix Iklan Tidak Tampil
+- **Masalah:** Iklan blank hitam + loading spinner berputar terus
+- **Penyebab:** `loadHtmlString` + iframe di-block Android WebView security (origin `about:blank`)
+- **Fix:** Ganti ke `loadRequest(Uri.parse(smartlinkUrl))` — load URL Adsterra langsung tanpa HTML wrapper/iframe
+- **Hasil:** Iklan tampil langsung di WebView, countdown mulai setelah page loaded
+
+### Verifikasi Akhir:
+- Versi live: **v2.3.3 build 23**
+- Commit HEAD: `26e6d3a`
+- GitHub Actions: semua success
+- Iklan: ✅ tampil di dalam app, tidak blank, tidak redirect browser
+- Variant A: ✅ clean skip setelah countdown
+- Variant B: ✅ fake skip → browser → balik → real skip
+
+### RULES IKLAN FINAL (simpan untuk referensi):
+```
+Episode 3, 9, 15, 21... → Variant A (normal, skip langsung)
+Episode 6, 12, 18, 24... → Variant B (fake skip, klik iklan dulu)
+Durasi countdown: random 10-15 detik
+Countdown mulai: setelah WebView finish load
+Posisi tombol: selalu kanan atas
+Rewarded (halaman koin): 8 detik, clean, +1 koin
+WebView: loadRequest langsung ke Smartlink URL (BUKAN loadHtmlString+iframe)
+```
+
+
+
+---
+
+## SESI 13 — NOTIFIKASI FASE 1 (LOCAL, TANPA FIREBASE) (26 Aug 2026)
+
+### Status: IMPLEMENTASI SELESAI — BELUM DI-PUSH/DEPLOY (menunggu izin owner)
+
+Fase 5 blueprint item "Push notifications" → dikerjakan Fase 1 (local notification tanpa Firebase).
+Versi target: **v2.4.0+24** (dari v2.3.3+23).
+
+### Backend — MasterPanel (masterpanel.jagatfilm.com, port 3004, PM2 "masterpanel")
+- **Tabel PostgreSQL baru** `app_notifications` di `masterpanel_db`:
+  `id, title, message, image_url, action, external_url, active, published_at, created_at` + index `(active, published_at DESC)`.
+- **Endpoint baru:**
+  - `GET /api/notifications` — public, list notif `active` (APK fetch). `?all=1` (admin) = semua.
+  - `POST /api/notifications` — admin only (session), buat notif (sanitasi title/message/url/action).
+  - `PUT /api/notifications/[id]` — admin, edit / toggle `active`.
+  - `DELETE /api/notifications/[id]` — admin, hapus.
+  - ⚠️ Next.js 14 → `params` adalah objek SINKRON (bukan Promise). Jangan pakai `await params`.
+- **Dashboard `dashboard/notifications/page.tsx`** di-rewrite dari mockup jadi CRUD fungsional
+  (form judul/pesan/gambar/aksi/aktif, tabel dengan toggle active + edit + hapus).
+- **Verifikasi backend:** `npm run build` SUKSES (routes + page compiled). PM2 restart.
+  `GET /api/notifications` → HTTP 200 `{"success":true,"data":[]}`. Uji insert: notif `active`
+  tampil, `inactive` disembunyikan dari public. Cleanup OK.
+
+### APK (lib/)
+- **`pubspec.yaml`:** `flutter_local_notifications: 17.2.4` (17.x = versi terakhir yang TIDAK butuh
+  core library desugaring; 18.0.0+ butuh desugaring → harus ubah `build.gradle.kts` = risiko, DIHINDARI).
+  `permission_handler` TIDAK dipakai — `flutter_local_notifications` sudah request POST_NOTIFICATIONS
+  sendiri via `requestNotificationsPermission()`, jadi native surface minimal.
+- **`lib/services/notification_service.dart` (BARU):**
+  - `AppNotification` model dengan parse tersanitasi (whitelist action, validasi http url).
+  - `NotificationService` singleton: `init()` (init plugin + createNotificationChannel + request izin),
+    `checkAndShow()` (fetch `https://masterpanel.jagatfilm.com/api/notifications`, dedupe via
+    SharedPreferences `shown_notification_ids` max 200, tampilkan BigTextStyle), `consumePendingAction()`.
+  - Payload tap = `action` (`page:xxx`) atau `external:<url>`. SEMUA dibungkus try-catch.
+- **`lib/main.dart`:** import service; `_runNotificationCheck()` dipanggil `unawaited()` di akhir
+  `_presentSessionNotices` (setelah cek update, non-blocking); `_handleNotificationAction` map
+  `external:<url>` → `launchUrl`, `page:*` → `_handlePopupAction` yang sudah ada.
+- **`.github/workflows/build-apk.yml`:** inject `POST_NOTIFICATIONS` ke manifest via `sed`
+  (pola sama persis dengan INTERNET). `build.gradle.kts` TIDAK diubah (no desugaring, no compileSdk bump).
+
+### Verifikasi Lokal
+- pubspec YAML valid (v2.4.0+24). workflow YAML valid, POST_NOTIFICATIONS injection ada.
+- Brace/paren/bracket balanced di notification_service.dart & main.dart. LSP no diagnostics.
+- Nama API plugin dikonfirmasi benar untuk 17.x.
+- Checklist anti-crash lulus: tidak ada dep yang butuh native config (beda dgn google_sign_in),
+  semua kode startup try-catch + unawaited, build.gradle.kts utuh, namespace tetap, tidak ada asset kosong.
+
+### ⚠️ BLOCKER Verifikasi
+- Flutter/Dart SDK TIDAK terpasang di server (dicek: which, /opt, /usr/local, ~, /root, find /).
+  `flutter analyze` / `flutter build` HANYA bisa jalan di GitHub Actions. Belum dijalankan karena belum push.
+
+### Belum dilakukan (menunggu owner)
+- `git commit` + `git push` (perlu izin eksplisit).
+- Setelah push WAJIB (AGENTS.md): pantau GH Actions run by commit SHA sampai `success`
+  (analyze, signed build, artifact), lalu verifikasi publik: `version.json` v2.4.0/versionCode 24,
+  APK server=public HTTP 200 + SHA-256 identik, cache BYPASS/no-store, signing block, git clean HEAD==origin/main.
+- Uji manual di device: buat notif di panel → buka app → notif muncul di status bar → tap → navigasi benar.
