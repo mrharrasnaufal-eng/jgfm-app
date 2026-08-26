@@ -224,21 +224,59 @@ class NotificationService {
 
   Future<void> _show(int notifId, AppNotification notif) async {
     try {
-      final androidDetails = AndroidNotificationDetails(
-        _channelId,
-        _channelName,
-        channelDescription: _channelDesc,
-        importance: Importance.defaultImportance,
-        priority: Priority.defaultPriority,
-        styleInformation: BigTextStyleInformation(notif.message),
-      );
-      final details = NotificationDetails(android: androidDetails);
+      // Determine notification style: BigPicture if image_url available, else BigText.
+      StyleInformation styleInfo;
+      if (notif.imageUrl.isNotEmpty) {
+        // Try to download the image for BigPictureStyle.
+        ByteArrayAndroidBitmap? bigPicture;
+        try {
+          final imgResponse = await http.get(
+            Uri.parse(notif.imageUrl),
+          ).timeout(const Duration(seconds: 5));
+          if (imgResponse.statusCode == 200 && imgResponse.bodyBytes.isNotEmpty) {
+            bigPicture = ByteArrayAndroidBitmap(imgResponse.bodyBytes);
+          }
+        } catch (_) {
+          // Image download failed — fall back to BigText.
+        }
+
+        if (bigPicture != null) {
+          styleInfo = BigPictureStyleInformation(
+            bigPicture,
+            largeIcon: bigPicture,
+            contentTitle: notif.title,
+            summaryText: notif.message,
+            hideExpandedLargeIcon: false,
+          );
+        } else {
+          styleInfo = BigTextStyleInformation(notif.message);
+        }
+      } else {
+        styleInfo = BigTextStyleInformation(notif.message);
+      }
 
       // Payload = action (page:xxx | external:<url>). Empty = just open app.
       String payload = notif.action;
       if (notif.action == 'external' && notif.externalUrl.isNotEmpty) {
         payload = 'external:${notif.externalUrl}';
       }
+
+      final androidDetails = AndroidNotificationDetails(
+        _channelId,
+        _channelName,
+        channelDescription: _channelDesc,
+        importance: Importance.high,
+        priority: Priority.high,
+        styleInformation: styleInfo,
+        actions: <AndroidNotificationAction>[
+          AndroidNotificationAction(
+            'action_open',
+            'Tonton',
+            showsUserInterface: true,
+          ),
+        ],
+      );
+      final details = NotificationDetails(android: androidDetails);
 
       await _plugin.show(
         notifId,

@@ -77,6 +77,10 @@ Future<void> _runMigration() async {
 class JagatFilmApp extends StatelessWidget {
   const JagatFilmApp({super.key});
 
+  /// Global navigator key for notification-triggered navigation.
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
@@ -87,6 +91,7 @@ class JagatFilmApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CoinService()),
       ],
       child: MaterialApp(
+        navigatorKey: navigatorKey,
         title: 'JagatFilm',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
@@ -254,16 +259,15 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _handlePopupAction(String action) async {
     if (!mounted) return;
+    final nav = JagatFilmApp.navigatorKey.currentState;
+    if (nav == null) return;
 
     switch (action) {
       case 'page:home':
         // Already on home after splash
         return;
       case 'page:search':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const SearchScreen()),
-        );
+        nav.push(MaterialPageRoute(builder: (_) => const SearchScreen()));
         return;
       case 'page:profile':
         // Profile is handled by MainShell bottom nav
@@ -272,10 +276,7 @@ class _MainScreenState extends State<MainScreen> {
         await UpdateService.checkForUpdate(context);
         return;
       case 'page:login':
-        await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
+        nav.push(MaterialPageRoute(builder: (_) => const LoginScreen()));
         return;
       case 'external':
         await _openExternalPopupUrl();
