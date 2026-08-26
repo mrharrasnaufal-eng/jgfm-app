@@ -1,7 +1,7 @@
 name: jagatfilm
 description: JagatFilm - Streaming Drama Indonesia
 publish_to: 'none'
-version: 2.4.0+25
+version: 2.5.0+26
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -26,6 +26,9 @@ dependencies:
   # Package ini juga sudah menangani permintaan izin POST_NOTIFICATIONS (Android 13+)
   # lewat requestNotificationsPermission(), jadi permission_handler tidak diperlukan.
   flutter_local_notifications: 17.2.4
+  # Notifikasi Fase 2 (FCM real-time push). Butuh google-services.json (GitHub Secret).
+  firebase_core: 3.8.1
+  firebase_messaging: 15.1.6
 
 dev_dependencies:
   flutter_test:

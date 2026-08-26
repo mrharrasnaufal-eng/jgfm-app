@@ -103,6 +103,9 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
+  /// Expose the plugin instance so FCMService can reuse it for foreground notifications.
+  FlutterLocalNotificationsPlugin get plugin => _plugin;
+
   /// The action captured from the most recent notification tap (if any).
   /// main.dart reads and clears this to perform navigation.
   static String? tappedAction;

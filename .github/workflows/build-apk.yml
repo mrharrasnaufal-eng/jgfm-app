@@ -31,6 +31,22 @@ jobs:
           rm -rf android
           flutter create --platforms=android --org com.jagatfilm --project-name jagatfilm .
 
+      - name: Decode google-services.json
+        run: |
+          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 --decode > android/app/google-services.json
+          echo "✅ google-services.json decoded to android/app/"
+          cat android/app/google-services.json | python3 -c "import sys,json;d=json.load(sys.stdin);print('package:', d['client'][0]['client_info']['android_client_info']['package_name'])"
+
+      - name: Add Google Services plugin to project
+        run: |
+          # Add google-services plugin to project-level build.gradle.kts (apply false)
+          PROJECT_GRADLE="android/build.gradle.kts"
+          if ! grep -q "com.google.gms.google-services" "$PROJECT_GRADLE"; then
+            sed -i '/plugins {/a \    id("com.google.gms.google-services") version "4.4.2" apply false' "$PROJECT_GRADLE"
+            echo "✅ google-services plugin added to project build.gradle.kts"
+          fi
+          cat "$PROJECT_GRADLE"
+
       - name: Apply JagatFilm launcher icon
         run: |
           ICON_RES="branding/launcher_icon/res"
@@ -69,6 +85,7 @@ jobs:
               id("com.android.application")
               id("kotlin-android")
               id("dev.flutter.flutter-gradle-plugin")
+              id("com.google.gms.google-services")
           }
 
           kotlin {

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,6 +15,7 @@ import 'screens/maintenance_screen.dart';
 import 'screens/search_screen.dart';
 import 'services/auth_service.dart';
 import 'services/coin_service.dart';
+import 'services/fcm_service.dart';
 import 'services/history_service.dart';
 import 'services/notification_service.dart';
 import 'services/remote_config_service.dart';
@@ -23,8 +25,16 @@ import 'theme/app_theme.dart';
 import 'widgets/remote_config_popup.dart';
 
 void main() {
-  runZonedGuarded(() {
+  runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
+
+    // Initialize Firebase (required for FCM). Must be before runApp but non-fatal if it fails.
+    try {
+      await Firebase.initializeApp();
+    } catch (e) {
+      debugPrint('Firebase init error (non-fatal): $e');
+    }
+
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
     ]);
@@ -202,6 +212,11 @@ class _MainScreenState extends State<MainScreen> {
   /// Fetch remote notifications, show them, and handle any pending tap action.
   Future<void> _runNotificationCheck() async {
     try {
+      // Initialize FCM (Fase 2) — shares the local notification plugin for foreground display.
+      await FCMService.instance.init(
+        localNotifPlugin: NotificationService.instance.plugin,
+      );
+
       // First, if the app was opened by tapping a notification, act on it.
       final pending = await NotificationService.instance.consumePendingAction();
       if (pending != null && pending.isNotEmpty && mounted) {
