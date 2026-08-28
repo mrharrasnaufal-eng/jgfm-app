@@ -41,11 +41,12 @@ jobs:
           cp android-native/res/drawable/bg_button_pink.xml android/app/src/main/res/drawable/
           cp android-native/res/drawable/bg_button_pink_large.xml android/app/src/main/res/drawable/
 
-          # Copy Kotlin files (overwrite generated MainActivity, add helper)
+          # Copy Kotlin files (overwrite generated MainActivity, add helper + FCM service)
           KOTLIN_DIR="android/app/src/main/kotlin/com/jagatfilm/jagatfilm"
           mkdir -p "$KOTLIN_DIR"
           cp android-native/kotlin/MainActivity.kt "$KOTLIN_DIR/"
           cp android-native/kotlin/CustomNotificationHelper.kt "$KOTLIN_DIR/"
+          cp android-native/kotlin/JagatFilmMessagingService.kt "$KOTLIN_DIR/"
 
           echo "✅ Custom notification native files applied"
           ls -la "$KOTLIN_DIR"
@@ -91,6 +92,47 @@ jobs:
           if ! grep -q "android.permission.POST_NOTIFICATIONS" "$MANIFEST"; then
             sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>' "$MANIFEST"
           fi
+
+      - name: Register custom FCM service in manifest
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          python3 - "$MANIFEST" << 'PYEOF'
+          import sys
+          path = sys.argv[1]
+          with open(path) as f:
+              content = f.read()
+
+          # tools namespace needed for tools:node="remove"
+          if 'xmlns:tools' not in content:
+              content = content.replace(
+                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android"',
+                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools"',
+                  1)
+
+          # Remove FlutterFire's default service (it would win the MESSAGING_EVENT
+          # resolution otherwise) and register ours, which extends it via super.
+          services = '''    <service
+            android:name="io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingService"
+            tools:node="remove" />
+
+        <service
+            android:name=".JagatFilmMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+'''
+          if 'JagatFilmMessagingService' not in content:
+              idx = content.index('<application')
+              end = content.index('>', idx) + 1
+              content = content[:end] + '\n' + services + content[end:]
+
+          with open(path, 'w') as f:
+              f.write(content)
+          print('✅ FCM service registered in manifest')
+          PYEOF
+          cat "$MANIFEST"
 
       - name: Decode keystore
         run: |

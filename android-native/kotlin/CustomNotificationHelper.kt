@@ -20,6 +20,9 @@ class CustomNotificationHelper(private val context: Context) {
     companion object {
         const val CHANNEL_ID = "jagatfilm_general"
         const val CHANNEL_NAME = "Notifikasi JagatFilm"
+
+        /** Max poster dimension in px (notification row only needs a small thumbnail). */
+        private const val MAX_POSTER_PX = 400
     }
 
     init {
@@ -52,10 +55,11 @@ class CustomNotificationHelper(private val context: Context) {
             downloadBitmap(imageUrl)
         } else null
 
-        // Create intent for notification tap (and button tap)
-        val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+        // Create intent for notification tap (and button tap).
+        // MainActivity reads the extra and forwards it to the pending-action prefs.
+        val launchIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("notification_action", action ?: "")
+            putExtra(MainActivity.EXTRA_NOTIFICATION_ACTION, action ?: "")
         }
         val pendingIntent = PendingIntent.getActivity(
             context,
@@ -108,11 +112,32 @@ class CustomNotificationHelper(private val context: Context) {
                 connection.doInput = true
                 connection.connect()
                 if (connection.responseCode == 200) {
-                    BitmapFactory.decodeStream(connection.inputStream)
+                    val bytes = connection.inputStream.readBytes()
+                    // Downsample: RemoteViews IPC transactions are capped at ~1MB —
+                    // a full-size poster bitmap would crash with TransactionTooLargeException.
+                    decodeSampledBitmap(bytes, MAX_POSTER_PX)
                 } else null
             } catch (e: Exception) {
                 null
             }
         }
+    }
+
+    /**
+     * Decode with inSampleSize so the longest side is at most [maxSize] px.
+     */
+    private fun decodeSampledBitmap(bytes: ByteArray, maxSize: Int): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+        var sample = 1
+        while (bounds.outWidth / (sample * 2) >= maxSize ||
+            bounds.outHeight / (sample * 2) >= maxSize
+        ) {
+            sample *= 2
+        }
+        val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
     }
 }

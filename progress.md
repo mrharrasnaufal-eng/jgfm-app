@@ -882,3 +882,134 @@ Versi target: **v2.4.0+24** (dari v2.3.3+23).
 - **Belum dites manual (butuh device):** buat notif di panel admin → buka app → notif muncul di
   status bar → tap → navigasi ke halaman/URL sesuai action. (Backend & pipeline sudah terverifikasi.)
 - ⚠️ **TOKEN GitHub `ghp_9iA3gdWev...` terekspos lagi di sesi ini — owner WAJIB revoke/rotate sekarang.**
+
+
+---
+
+## SESI 13 LANJUTAN — NOTIFIKASI CUSTOM DRAMABOX-STYLE (26 Aug 2026)
+
+### Status: ❌ GAGAL — Custom layout TIDAK tampil saat app tertutup
+
+### Apa yang sudah dibuat:
+- Layout XML custom (notification_collapsed + notification_expanded) dengan poster kiri + teks tengah + tombol pink "Tonton"
+- CustomNotificationHelper.kt (RemoteViews + image download + PendingIntent)
+- MainActivity.kt (MethodChannel bridge Dart→native)
+- NotificationService Dart memanggil native via MethodChannel, fallback ke flutter_local_notifications
+- Build SUKSES (v2.5.2+28, run 33015024909)
+
+### Kenapa gagal:
+- **MethodChannel hanya bisa dipanggil saat Flutter engine aktif** (app terbuka/foreground)
+- Saat app tertutup, FCM menampilkan notifikasi menggunakan **style default Android** dari field `notification` di payload — BUKAN custom layout
+- Untuk custom layout saat app tertutup, butuh:
+  1. Kirim FCM sebagai **data-only message** (tanpa field `notification`)
+  2. Buat `FirebaseMessagingService` native Kotlin yang handle message di background
+  3. Dari service itu, panggil `CustomNotificationHelper` untuk tampilkan custom layout
+  4. Register service di AndroidManifest
+
+### Yang owner inginkan (BELUM TERPENUHI):
+Notifikasi **persis seperti DramaBox** di status bar smartphone:
+
+**Collapsed (bar kecil):**
+- Ikon app (kiri) — logo JagatFilm rounded
+- Poster/thumbnail drama (vertikal, sebelah ikon)
+- Judul drama (tebal, hitam, max 1 baris)
+- Deskripsi (abu-abu, emoji 🔥 + teks, max 1 baris)
+- Tombol "Tonton" (pink #FF2D55, rounded, teks putih) di kanan
+- Chevron expand di ujung kanan
+
+**Expanded (diperluas setelah swipe/klik):**
+- Header: ikon app + "JagatFilm sekarang 🔔" + chevron atas
+- Poster drama penuh (vertikal, kiri)
+- Judul lengkap (kanan, tebal)
+- Deskripsi lengkap (kanan)
+- Tombol "Tonton" pink full-width membentang di bawah
+
+**Persyaratan tambahan:**
+- HARUS tampil saat app **tertutup** (push dari server)
+- Tap notifikasi/tombol → navigasi ke halaman target (search/home/drama/external URL)
+- Poster di-download dari image_url yang dimasukkan admin
+
+### Solusi yang belum diimplementasi:
+1. Endpoint push kirim **data-only message** (hapus field `notification` dari FCM payload)
+2. Buat `JagatFilmMessagingService.kt` extends `FirebaseMessagingService`
+   - Override `onMessageReceived` → parse data → panggil `CustomNotificationHelper.show()`
+   - Ini berjalan di background tanpa Flutter engine
+3. Register service di AndroidManifest:
+   ```xml
+   <service android:name=".JagatFilmMessagingService" android:exported="false">
+     <intent-filter>
+       <action android:name="com.google.firebase.MESSAGING_EVENT"/>
+     </intent-filter>
+   </service>
+   ```
+4. Workflow: copy service file + inject manifest entry via sed
+
+### Catatan:
+- File native yang sudah dibuat (android-native/) masih ada di repo dan BISA dipakai
+- Yang kurang hanya FirebaseMessagingService native + data-only FCM + manifest entry
+- Ini BUKAN limitasi Flutter yang tidak bisa diatasi — hanya perlu pendekatan berbeda
+
+
+---
+
+## SESI 14 — CUSTOM NOTIFIKASI NATIVE (FCM DATA-ONLY) v2.6.0+29 (28 Aug 2026)
+
+### Backup sebelum mulai
+- APK v2.5.2+28 dibackup: `backup/apk-stable/app-release-v2.5.2+28-stable.apk` + `version-v2.5.2.json`
+  + `BACKUP-INFO-v2.5.2.md`. Git tag `v2.5.2+28` di commit `366ec22`. SHA-256
+  `9d4118561db36ddc928aceef4f147f7ed4954156eae9e7630825d2af6fa16360`.
+- CONTEXT.md di-update dengan entri backup baru.
+
+### Riset (sumber: Android dev docs, Stack Overflow, Qonversion, Pushe/Yandex docs)
+- Custom layout saat app tertutup HANYA mungkin dengan **data-only FCM** (tanpa key `notification`).
+  Payload `notification` → system tray pakai style default, custom UI dilewati.
+- Android 12+ (targetSdk 31+): tinggi collapsed custom content dibatasi **48dp** (turun dari 106dp)
+  → layout collapsed lama 64dp HARUS diubah.
+- Teks custom layout WAJIB pakai warna adaptif (`?android:attr/textColorPrimary/Secondary`),
+  bukan warna fixed — background notifikasi bervariasi per OEM.
+- Transaksi RemoteViews dibatasi ~1MB → poster dari `image_url` WAJIB di-downsample
+  (full-size bitmap = TransactionTooLargeException).
+- Header (ikon app + chevron expand + "sekarang") otomatis dari `DecoratedCustomViewStyle`.
+- firebase_messaging 15.1.6: `FlutterFirebaseMessagingService.onMessageReceived` KOSONG (placeholder,
+  delivery Dart via `FlutterFirebaseMessagingReceiver` c2dm.intent.RECEIVE) → aman di-remove
+  dari manifest dengan `tools:node="remove"` dan diganti service sendiri yang extends class tsb.
+
+### Implementasi (APK)
+1. `notification_collapsed.xml`: tinggi 48dp, padding 4dp, poster 28x40dp, tombol 24dp,
+   warna teks adaptif.
+2. `notification_expanded.xml`: warna teks adaptif (struktur tetap).
+3. `CustomNotificationHelper.kt`: poster di-downsample (max 400px, inSampleSize),
+   intent tap sekarang eksplisit ke `MainActivity` dengan extra `notification_action`.
+4. `JagatFilmMessagingService.kt` (BARU): extends `FlutterFirebaseMessagingService` —
+   `super.onMessageReceived` lalu tampilkan custom notification UNTUK data-only saat app
+   TIDAK foreground (flag `MainActivity.isAppForeground`). Network/bitmap via
+   `goAsync()` + `Dispatchers.IO` (window ~20 detik). Foreground tetap ditangani Dart
+   (hindari dobel notifikasi).
+5. `MainActivity.kt`: flag foreground (onResume/onPause), baca extra `notification_action`
+   di onCreate/onNewIntent → tulis ke file `FlutterSharedPreferences` key
+   `flutter.pending_notification_action` (prefix shared_preferences) → alur
+   `NotificationService.consumePendingAction()` yang SUDAH ADA berjalan tanpa ubah Dart.
+6. `build-apk.yml`: copy `JagatFilmMessagingService.kt` + step baru "Register custom FCM
+   service in manifest" (python3): tambah `xmlns:tools`, remove
+   `FlutterFirebaseMessagingService` via `tools:node="remove"`, daftarkan
+   `.JagatFilmMessagingService` (exported=false, MESSAGING_EVENT).
+7. `pubspec.yaml`: version **2.6.0+29**.
+
+### Implementasi (MasterPanel) — JANGAN deploy sebelum APK live!
+- `src/app/api/notifications/push/route.ts`: payload jadi **data-only** (hapus key
+  `notification` + `android.notification`), data = title/message/image_url/action/external_url,
+  `android.priority: high`. image_url divalidasi http(s).
+- ⚠️ URUTAN DEPLOY: APK v2.6.0+29 rilis & terverifikasi DULU, baru deploy MasterPanel.
+  APK lama (<2.6.0) tidak menampilkan data-only saat app tertutup (background handler
+  hanya log) — push akan "hilang" bagi user yang belum update.
+
+### Matriks perilaku setelah ini live (server data-only)
+| Status app | Tampilan notifikasi |
+|---|---|
+| Foreground | Dart onMessage → flutter_local_notifications (style standar) |
+| Background / tertutup | `JagatFilmMessagingService` → custom DramaBox-style ✅ |
+
+### Catatan
+- Tap notifikasi custom saat app tertutup → cold start → MainActivity tulis prefs →
+  konsumsi action di startup (navigasi). Tap saat app background (warm) → action tersimpan,
+  dikonsumsi pada startup berikutnya — KONSISTEN dengan perilaku semua notifikasi saat ini.
