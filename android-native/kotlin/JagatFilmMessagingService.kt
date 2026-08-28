@@ -39,17 +39,15 @@ class JagatFilmMessagingService : FlutterFirebaseMessagingService() {
             else action
 
         // onMessageReceived runs on the main thread — network + bitmap work goes to IO.
-        // goAsync() keeps the service alive until the async work completes (max ~20s window).
-        val async = goAsync()
+        // Note: goAsync() was removed in firebase-messaging 24.x; the system allows ~10s
+        // for background processing. Our downloads time out at 5s, well within budget.
+        val id = (remoteMessage.sentTime % 100000).toInt()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val id = (remoteMessage.sentTime % 100000).toInt()
                 CustomNotificationHelper(applicationContext)
                     .show(id, title, message, imageUrl, payload)
             } catch (e: Exception) {
                 // Notifications are optional — never crash.
-            } finally {
-                async.finish()
             }
         }
     }
