@@ -3,12 +3,14 @@ package com.jagatfilm.jagatfilm
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.security.MessageDigest
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.jagatfilm.jagatfilm/notifications"
@@ -94,8 +96,28 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                 }
+                "getAndroidId" -> {
+                    // Tier 1 anti-cheat: ANDROID_ID survives uninstall/reinstall
+                    // (scoped per signing key + user + device since Android 8).
+                    // Returned as SHA-256 hex so the raw ID never leaves the device.
+                    try {
+                        val androidId = Settings.Secure.getString(
+                            contentResolver, Settings.Secure.ANDROID_ID)
+                        result.success(
+                            if (androidId.isNullOrBlank()) "" else sha256Hex(androidId)
+                        )
+                    } catch (e: Exception) {
+                        result.error("ANDROID_ID_ERROR", e.message, null)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }
+    }
+
+    private fun sha256Hex(input: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(input.toByteArray(Charsets.UTF_8))
+        return digest.joinToString("") { "%02x".format(it) }
     }
 }

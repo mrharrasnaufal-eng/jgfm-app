@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,6 +13,11 @@ import '../models/coin_transaction.dart';
 class CoinService extends ChangeNotifier {
   static const String _baseUrl = 'https://jagatfilm.com/api/coins';
   static const String _deviceIdKey = 'jgfm_device_id';
+
+  /// Native bridge (same channel used by notifications).
+  static const MethodChannel _nativeChannel =
+      MethodChannel('com.jagatfilm.jagatfilm/notifications');
+
   static const int maxDailyAds = 50;
 
   String? _deviceId;
@@ -48,22 +54,44 @@ class CoinService extends ChangeNotifier {
   }
 
   /// Generate a unique device_id on first install, persist in SharedPreferences.
+  ///
+  /// Tier 1 anti-cheat (v2.6.1+30): the ID is derived from the device's
+  /// ANDROID_ID (SHA-256 hashed natively, never sent raw). It survives
+  /// uninstall/reinstall on the same device with the same signing key, so the
+  /// server-side wallet and daily limits can no longer be reset by reinstalling.
+  /// Existing installs keep their current ID (no disruption / no lost balance).
   Future<void> _loadOrCreateDeviceId() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       _deviceId = prefs.getString(_deviceIdKey);
 
       if (_deviceId == null || _deviceId!.length < 10) {
-        // Generate UUID-like device ID
-        final now = DateTime.now().millisecondsSinceEpoch;
-        final random = now.hashCode.toRadixString(36);
-        _deviceId = 'jgfm_${now}_$random';
+        final androidIdHash = await _fetchAndroidIdHash();
+        if (androidIdHash != null) {
+          _deviceId = 'jgfm_$androidIdHash';
+        } else {
+          // Fallback (rare: ANDROID_ID unavailable or channel error) — legacy random ID.
+          final now = DateTime.now().millisecondsSinceEpoch;
+          final random = now.hashCode.toRadixString(36);
+          _deviceId = 'jgfm_${now}_$random';
+        }
         await prefs.setString(_deviceIdKey, _deviceId!);
       }
     } catch (_) {
       // Fallback: generate ephemeral ID (will be lost on restart)
       _deviceId = 'jgfm_${DateTime.now().millisecondsSinceEpoch}_fallback';
     }
+  }
+
+  /// Ask native for SHA-256(ANDROID_ID). Empty on error/unavailable.
+  Future<String?> _fetchAndroidIdHash() async {
+    try {
+      final hash = await _nativeChannel.invokeMethod<String>('getAndroidId');
+      if (hash != null && hash.isNotEmpty) return hash;
+    } catch (_) {
+      // Channel missing (old MainActivity) or failed — fall back silently.
+    }
+    return null;
   }
 
   /// Fetch current balance from server.
