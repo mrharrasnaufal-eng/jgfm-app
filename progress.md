@@ -1042,3 +1042,15 @@ Notifikasi **persis seperti DramaBox** di status bar smartphone:
   custom muncul di status bar → tap → navigasi sesuai action.
 - ⚠️ **TOKEN GitHub `ghp_9iA3gdWev...` TEREKSPOS LAGI sesi ini (dipakai untuk push + baca
   log CI). Owner WAJIB revoke/rotate SEKARANG.**
+
+### FIX PANEL: push tidak kirim image_url (28 Aug 2026, ~21:15 UTC)
+- **Gejala:** member dengan APK 2.6.0+29 melihat notifikasi dengan logo app, bukan poster
+  yang di-upload admin.
+- **Akar masalah:** form push di `dashboard/notifications/page.tsx` tidak menyertakan
+  `image_url` di body → payload FCM `data.image_url` kosong → service native skip poster →
+  layout jatuh ke placeholder `@mipmap/ic_launcher`.
+- **Fix:** tambah `image_url: form.image_url` ke body push. Proxy `/api/img` terverifikasi
+  sehat (JPEG 720x1064, 200 OK, juga untuk UA Dalvik Android). MasterPanel di-rebuild +
+  PM2 restart, endpoints 200.
+- **Tes ulang:** buat notifikasi BARU + centang "Kirim Push" (notifikasi lama id 11 sudah
+  terkirim tanpa image_url, tidak retroaktif).
