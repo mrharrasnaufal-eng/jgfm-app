@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/drama.dart';
+import '../models/feed_item.dart';
 
 class ApiService {
   static const String baseUrl = 'https://jagatfilm.com';
@@ -90,6 +91,59 @@ class ApiService {
     if (query.trim().isEmpty) return [];
     final response = await getDramas(query: query, page: 1, limit: 50);
     return response.dramas;
+  }
+
+  /// Random dramas untuk feed "Untuk Anda" (Reels-style).
+  /// [providers] kosong = semua provider. Include status like per device.
+  Future<List<FeedItem>> getRandomDramas({
+    required List<String> providers,
+    int limit = 10,
+    String? deviceId,
+  }) async {
+    final params = <String, String>{'limit': limit.toString()};
+    if (providers.isNotEmpty) params['providers'] = providers.join(',');
+    if (deviceId != null && deviceId.isNotEmpty) {
+      params['device_id'] = deviceId;
+    }
+
+    final uri = Uri.parse('$baseUrl/api/dramas/random')
+        .replace(queryParameters: params);
+    final response = await _client
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body);
+      if (json['success'] == true && json['data'] is List) {
+        return (json['data'] as List)
+            .map((e) => FeedItem.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    }
+    throw ApiException('Gagal memuat feed', response.statusCode);
+  }
+
+  /// Toggle like drama. Returns (liked, like_count) dari server.
+  Future<(bool, int)> toggleLike(String dramaId, String deviceId) async {
+    final uri = Uri.parse('$baseUrl/api/likes');
+    final response = await _client
+        .post(
+          uri,
+          headers: {..._headers, 'Content-Type': 'application/json'},
+          body: jsonEncode({'drama_id': dramaId, 'device_id': deviceId}),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body);
+      if (json['success'] == true) {
+        return (
+          json['liked'] == true,
+          (json['like_count'] as num?)?.toInt() ?? 0,
+        );
+      }
+    }
+    throw ApiException('Gagal menyimpan like', response.statusCode);
   }
 
   Map<String, String> get _headers => {

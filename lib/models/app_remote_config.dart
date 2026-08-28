@@ -18,6 +18,9 @@ class AppRemoteConfig {
   final String minimumVersion;
   final String homeProvider;
 
+  /// Provider yang dipilih admin untuk feed "Untuk Anda". Kosong = semua provider.
+  final List<String> forYouProviders;
+
   const AppRemoteConfig({
     required this.logoUrl,
     required this.splashImageUrl,
@@ -34,6 +37,7 @@ class AppRemoteConfig {
     required this.forceUpdate,
     required this.minimumVersion,
     required this.homeProvider,
+    this.forYouProviders = const [],
   });
 
   const AppRemoteConfig.defaults()
@@ -51,7 +55,8 @@ class AppRemoteConfig {
         announcement = '',
         forceUpdate = false,
         minimumVersion = '1.0.0',
-        homeProvider = 'shortmax';
+        homeProvider = 'shortmax',
+        forYouProviders = const [];
 
   factory AppRemoteConfig.fromJson(Map<String, dynamic> json) {
     final popupAction = _popupAction(json['popup_action_url']);
@@ -78,6 +83,7 @@ class AppRemoteConfig {
       forceUpdate: _boolValue(json['force_update']),
       minimumVersion: _version(json['min_version']),
       homeProvider: _provider(json['home_provider']),
+      forYouProviders: _providersList(json['for_you_providers']),
     );
   }
 
@@ -167,5 +173,22 @@ class AppRemoteConfig {
       'microdrama', 'dotdrama', 'dramabox', 'starshort',
     };
     return allowed.contains(normalized) ? normalized : 'shortmax';
+  }
+
+  static List<String> _providersList(dynamic value) {
+    if (value is! List) return const [];
+    const allowed = {
+      'shortmax', 'cashdrama', 'netshort', 'rapidtv', 'bilitv',
+      'flickreels', 'melolo', 'wetv', 'dramabite', 'reelshort',
+      'microdrama', 'dotdrama', 'dramabox', 'starshort',
+    };
+    final out = <String>[];
+    for (final e in value) {
+      if (e is String) {
+        final s = e.trim().toLowerCase();
+        if (allowed.contains(s) && !out.contains(s)) out.add(s);
+      }
+    }
+    return out;
   }
 }

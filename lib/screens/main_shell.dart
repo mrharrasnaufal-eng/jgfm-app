@@ -21,10 +21,14 @@ class MainShell extends StatefulWidget {
   final String? logoUrl;
   final String? announcement;
 
+  /// Provider pilihan admin untuk feed "Untuk Anda" (kosong = semua).
+  final List<String> forYouProviders;
+
   const MainShell({
     super.key,
     this.logoUrl,
     this.announcement,
+    this.forYouProviders = const [],
   });
 
   @override
@@ -45,7 +49,7 @@ class _MainShellState extends State<MainShell> {
         logoUrl: widget.logoUrl ?? '',
         announcement: widget.announcement ?? '',
       ),
-      const ForYouScreen(),
+      ForYouScreen(providers: widget.forYouProviders),
       const CoinScreen(),
       const WatchlistScreen(),
       const ProfileScreen(),

@@ -329,6 +329,7 @@ class _MainScreenState extends State<MainScreen> {
     return MainShell(
       logoUrl: _config.logoUrl,
       announcement: _config.announcement,
+      forYouProviders: _config.forYouProviders,
     );
   }
 }
