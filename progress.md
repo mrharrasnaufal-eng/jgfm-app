@@ -1054,3 +1054,17 @@ Notifikasi **persis seperti DramaBox** di status bar smartphone:
   PM2 restart, endpoints 200.
 - **Tes ulang:** buat notifikasi BARU + centang "Kirim Push" (notifikasi lama id 11 sudah
   terkirim tanpa image_url, tidak retroaktif).
+
+### GAGASAN (DITUNDA OWNER): Anti-Cheat Identitas Device (28 Aug 2026)
+- **Masalah:** device_id saat ini = random + SharedPreferences → uninstall/reinstall =
+  device_id baru → limit harian koin reset. Bisa dieksploitasi tanpa root.
+- **Gagasan yang dicatat:**
+  1. device_id berbasis **ANDROID_ID** (bertahan reinstall, berubah saat factory reset)
+  2. Deteksi reinstall via **Firebase Installation ID** (install_id kedua, sudah ada dari FCM)
+  3. **1 akun = 1 smartphone** — tabel `user_devices` + kebijakan re-link (edge case factory reset)
+  4. **Play Integrity API** — anti-spoof root/emulator
+  5. IMEI TIDAK bisa (diblokir Android 10+ untuk app pihak ketiga)
+- **Keputusan owner: DITUNDA** sampai APK dianggap selesai.
+- **Rekomendasi Claude:** Tier 1 (device_id → ANDROID_ID) idealnya dikerjakan SEGERA karena
+  sistem koin sudah live + withdraw aktif — celahnya nyata, perbaikannya kecil. Tier 2
+  (1-akun-1-device + Play Integrity + penalti) boleh menunggu. Owner memutuskan menunda.
