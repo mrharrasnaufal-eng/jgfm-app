@@ -1068,3 +1068,26 @@ Notifikasi **persis seperti DramaBox** di status bar smartphone:
 - **Rekomendasi Claude:** Tier 1 (device_id → ANDROID_ID) idealnya dikerjakan SEGERA karena
   sistem koin sudah live + withdraw aktif — celahnya nyata, perbaikannya kecil. Tier 2
   (1-akun-1-device + Play Integrity + penalti) boleh menunggu. Owner memutuskan menunda.
+
+### ✅ TIER 1 DIKERJAKAN & LIVE (28 Aug 2026, v2.6.1+30, commit `450459b`)
+Owner setuju kerjakan Tier 1. Implementasi (APK only, TANPA perubahan server):
+1. `MainActivity.kt`: method channel `getAndroidId` → `sha256Hex(Settings.Secure.ANDROID_ID)`.
+   ID mentah tidak pernah keluar device (privasi). ANDROID_ID stabil per device + signing key
+   (sejak Android 8), bertahan uninstall/reinstall.
+2. `CoinService._loadOrCreateDeviceId`: ID baru = `jgfm_<sha256>` (69 char; kolom
+   `coin_wallets.device_id` varchar(100) — AMAN, dicek langsung ke PostgreSQL).
+   Install lama TETAP pakai ID tersimpan (saldo tidak hilang). Fallback random legacy
+   bila channel gagal/ANDROID_ID kosong.
+3. `pubspec.yaml`: 2.6.1+30.
+
+**Efek:** reinstall di device sama → device_id sama → wallet + limit harian server
+TIDAK reset. (Catatan: user lama yang uninstall pertama kali SETELAH update ini masih bisa
+reset sekali karena ID lama mereka random; setelah itu terkunci permanen.)
+
+**Deploy terverifikasi:** CI run `33213865519` success (semua step hijau). version.json
+2.6.1/30 publik & server. SHA-256 publik = server `91b86e3cdc62ac88fe135150026a4f282320d4d0d170113fc7f47a5c4d022d37`.
+Cache BYPASS. Manifest: JagatFilmMessagingService tetap ada, FlutterFire tetap ter-remove (no regresi).
+**Tes manual (butuh device):** install → catat device_id (via API balance) → uninstall →
+install ulang → device_id harus SAMA.
+
+### Tier 2 (MASIH DITUNDA): instal_id FID + user_devices + Play Integrity — lihat section gagasan di atas.
