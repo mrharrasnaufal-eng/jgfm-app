@@ -197,6 +197,11 @@ jobs:
           dependencies {
               coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
               implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+              // Firebase SDK must be on the app compile classpath for JagatFilmMessagingService
+              // (FlutterFire plugins expose it as implementation-only). BoM version must match
+              // firebase_core 3.8.1 gradle.properties (FirebaseSDKVersion=33.5.1).
+              implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
+              implementation("com.google.firebase:firebase-messaging")
           }
 
           flutter {
