@@ -1013,3 +1013,32 @@ Notifikasi **persis seperti DramaBox** di status bar smartphone:
 - Tap notifikasi custom saat app tertutup → cold start → MainActivity tulis prefs →
   konsumsi action di startup (navigasi). Tap saat app background (warm) → action tersimpan,
   dikonsumsi pada startup berikutnya — KONSISTEN dengan perilaku semua notifikasi saat ini.
+
+### Fix berurutan selama CI (3 kegagalan → sukses)
+1. Run `33207651721` GAGAL (0 job): YAML parse error — indentasi `<service>` & `'''` di
+   heredoc python kurang dari block scalar. Fix commit `2755d71`.
+2. Run `33207832825` GAGAL (Build Release APK): `Unresolved reference 'google'` — class
+   Firebase SDK tidak ada di compile classpath :app (FlutterFire expose implementation-only).
+   Fix commit `845c711`: tambah `firebase-bom:33.5.1` + `firebase-messaging` ke
+   build.gradle.kts (versi BoM diambil dari gradle.properties firebase_core 3.8.1).
+3. Run `33208610384` GAGAL (compile): `Unresolved reference 'goAsync'` — API dihapus di
+   firebase-messaging 24.x. Fix commit `53edb06`: coroutine biasa (window ~10 dtk,
+   timeout download 5 dtk).
+
+### ✅ DEPLOY BERHASIL & TERVERIFIKASI (v2.6.0+29, 28 Aug 2026 ~20:48 UTC)
+- **Commit:** `53edb06` (HEAD main). Run `33209230170` conclusion **success**, semua step hijau
+  termasuk Deploy to aaPanel + Move files on server (dicek satu-satu, bukan cuma badge).
+- **Verifikasi publik:**
+  - `version.json` publik & server: version `2.6.0`, versionCode `29`. ✅
+  - APK publik & server: HTTP 200, size 63.245.275 bytes, timestamp 20:48 UTC. ✅
+  - SHA-256 publik = server: `aeaf050ebea9209400bfc6a4645e177226a8ccf9cf3ab03103e1f010ba6642da`. ✅
+  - Cache: `no-store`, `cf-cache-status: BYPASS`. ✅
+  - ZIP integrity OK; APK Signing Block v2/v3 ada. ✅
+  - Manifest APK (AXML, UTF-16LE): `JagatFilmMessagingService` + `MESSAGING_EVENT` ADA,
+    `FlutterFirebaseMessagingService` TIDAK ADA (tools:node removal berhasil). ✅
+- **MasterPanel (data-only):** source diubah → `npm run build` sukses → PM2 `masterpanel`
+  restart, online, unstable restart 0. `/api/notifications` 200, `/api/config` 200. ✅
+- **Belum dites manual (butuh device):** kirim push dari panel → tutup app → notifikasi
+  custom muncul di status bar → tap → navigasi sesuai action.
+- ⚠️ **TOKEN GitHub `ghp_9iA3gdWev...` TEREKSPOS LAGI sesi ini (dipakai untuk push + baca
+  log CI). Owner WAJIB revoke/rotate SEKARANG.**
