@@ -21,7 +21,8 @@ dependencies:
   package_info_plus: 8.0.2
   webview_flutter: 4.8.0
   # Share ke WhatsApp/dll untuk feed "Untuk Anda" (Reels-style).
-  share_plus: 13.3.0
+  # 13.x bentrok dengan package_info_plus 8.0.2 (win32) — 12.x dipilih agar config proven tetap.
+  share_plus: 12.0.2
   # Notifikasi Fase 1 (local notification, TANPA Firebase).
   # Versi dipilih agar TIDAK butuh core library desugaring (18.0.0+ butuh desugaring
   # yang mengharuskan ubah build.gradle.kts — dihindari agar config proven tidak berubah).
