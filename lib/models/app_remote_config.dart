@@ -21,6 +21,10 @@ class AppRemoteConfig {
   /// Provider yang dipilih admin untuk feed "Untuk Anda". Kosong = semua provider.
   final List<String> forYouProviders;
 
+  /// Aktifkan iklan interstitial tiap 3 episode saat nonton (PlayerScreen).
+  /// Default true. Bisa di-toggle dari MasterPanel.
+  final bool interstitialAdsEnabled;
+
   const AppRemoteConfig({
     required this.logoUrl,
     required this.splashImageUrl,
@@ -38,6 +42,7 @@ class AppRemoteConfig {
     required this.minimumVersion,
     required this.homeProvider,
     this.forYouProviders = const [],
+    this.interstitialAdsEnabled = true,
   });
 
   const AppRemoteConfig.defaults()
@@ -56,7 +61,8 @@ class AppRemoteConfig {
         forceUpdate = false,
         minimumVersion = '1.0.0',
         homeProvider = 'shortmax',
-        forYouProviders = const [];
+        forYouProviders = const [],
+        interstitialAdsEnabled = true;
 
   factory AppRemoteConfig.fromJson(Map<String, dynamic> json) {
     final popupAction = _popupAction(json['popup_action_url']);
@@ -84,6 +90,9 @@ class AppRemoteConfig {
       minimumVersion: _version(json['min_version']),
       homeProvider: _provider(json['home_provider']),
       forYouProviders: _providersList(json['for_you_providers']),
+      interstitialAdsEnabled: json['interstitial_ads_enabled'] == null
+          ? true
+          : _boolValue(json['interstitial_ads_enabled']),
     );
   }
 

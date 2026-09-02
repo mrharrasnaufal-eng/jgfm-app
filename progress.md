@@ -1091,3 +1091,95 @@ Cache BYPASS. Manifest: JagatFilmMessagingService tetap ada, FlutterFire tetap t
 install ulang → device_id harus SAMA.
 
 ### Tier 2 (MASIH DITUNDA): instal_id FID + user_devices + Play Integrity — lihat section gagasan di atas.
+
+
+---
+
+## SESI 15 — FEED "UNTUK ANDA" REELS-STYLE (v2.7.0+31, 28 Aug 2026)
+
+### Status: DEPLOY BERHASIL & TERVERIFIKASI ✅
+
+### Commit
+| # | Hash | Pesan |
+|---|------|-------|
+| 1 | `99e35e5` | feat: feed Untuk Anda Reels-style — video vertikal + like/share/daftarku (v2.7.0+31) |
+| 2 | `d013a49` | fix: share_plus 12.0.2 (13.x bentrok win32 dengan package_info_plus 8.0.2) |
+
+### Fitur
+- **ForYouScreen di-rewrite jadi feed Reels-style (TikTok-like):** `PageView` vertikal
+  fullscreen, autoplay episode 1, swipe atas/bawah pindah drama, prefetch drama
+  berikutnya, auto-skip video rusak (error → loncat), dan **tanpa iklan interstitial**.
+- **3 tombol aksi** (kanan bawah tiap card):
+  - ❤️ **Like** — server-sync via `POST /api/likes` (`drama_id` + `device_id` → balasan `liked` + `like_count`).
+  - ↗️ **Bagikan** — `share_plus` (share link ke WhatsApp/dll).
+  - ➕ **Tambah ke Daftar Saya** — toggle `WatchlistService` (SharedPreferences).
+- **Feed bersumber** dari `GET /api/dramas/random?limit=&providers=&device_id=`.
+  Provider dipilih admin via remote config `for_you_providers` (MasterPanel → Pengaturan);
+  kosong = semua provider. Like status per-device di-include (param `device_id`).
+
+### File
+- **Baru:** `lib/models/feed_item.dart` — `FeedItem` = `Drama` + `liked` + `likeCount`
+  (field mutable, di-update saat user toggle like).
+- **Diubah:**
+  - `lib/screens/for_you_screen.dart` — rewrite total (~975 baris).
+  - `lib/services/api_service.dart` — method baru `getRandomDramas()` + `toggleLike()`.
+  - `lib/models/app_remote_config.dart` — field `forYouProviders` + whitelist
+    `_providersList()` (14 provider yang diizinkan, lowercase+dedupe).
+  - `lib/screens/main_shell.dart` + `lib/main.dart` — pass `forYouProviders` ke `ForYouScreen`.
+  - `pubspec.yaml` — tambah `share_plus`.
+
+### Dependency
+- `share_plus` ditambahkan. Awal `13.3.0` → **konflik transitive win32** dengan
+  `package_info_plus 8.0.2` → **downgrade ke `12.0.2`** (commit `d013a49`). Config proven
+  (`package_info_plus`) tidak diubah.
+
+### Endpoint server (jagatfilm.com) — SUDAH LIVE ✅
+- `GET /api/dramas/random` → `{"success":true,"data":[...]}` ✅
+- `POST /api/likes` → `{"success":true,"liked":true,"like_count":N}` ✅
+
+### ✅ Verifikasi deploy (28 Aug 2026 ~22:31 UTC)
+- `version.json` server = publik: version `2.7.0`, versionCode `31`. ✅
+- APK server = publik: HTTP 200, size `63.262.691` bytes, timestamp `22:31 UTC`. ✅
+- **SHA-256 publik = server:** `0fd6382b1c14b3d0a4fe7bf02a35e8bd5c8d2994db13f50f16650e38a18dcb17`. ✅
+- Cache: `cache-control: no-store`, `cdn-cache-control: no-store`, `cf-cache-status: BYPASS`. ✅
+- Git clean, `HEAD == origin/main` pada `d013a49`. ✅
+- CI run ID: belum tercatat (gh CLI tidak tersedia di server sesi ini — cek
+  https://github.com/mrharrasnaufal-eng/jgfm-app/actions untuk run commit `99e35e5`).
+
+### Belum dites manual (butuh device)
+- Swipe feed + autoplay episode 1, like tersimpan di server, share ke WhatsApp,
+  tombol "Tambah ke Daftar Saya" masuk WatchlistScreen.
+
+### Catatan
+- Feed "Untuk Anda" tidak menampilkan iklan interstitial (berbeda dengan PlayerScreen
+  yang tetap tayang iklan tiap 3 episode) — sesuai keputusan sesi ini.
+
+---
+
+## SESI 16 — TOGGLE IKLAN INTERSTITIAL VIA REMOTE CONFIG (v2.7.1+32, 2 Sep 2026)
+
+### Status: IMPLEMENTASI SELESAI — BELUM DI-PUSH (menunggu token GitHub)
+
+### Tujuan
+Iklan interstitial "tiap 3 episode" di PlayerScreen kini bisa di on/off dari MasterPanel
+(tanpa build ulang APK). Iklan rewarded (koin) TIDAK disentuh.
+
+### APK (lib/)
+- `app_remote_config.dart`: field baru `interstitialAdsEnabled` (default true, parse
+  `interstitial_ads_enabled`, null → true agar iklan tetap aktif bila field belum ada).
+- `ad_service.dart`: `static bool interstitialAdsEnabled = true`; `shouldShowAd()` return
+  null langsung bila flag false (tidak increment counter).
+- `main.dart`: import `ad_service.dart`; set `AdService.interstitialAdsEnabled` setelah
+  config di-load (di `_loadRemoteConfig`).
+- `pubspec.yaml`: version **2.7.1+32**.
+
+### MasterPanel (sudah deploy)
+- `data/app-config.json`: field `interstitial_ads_enabled: true`.
+- `dashboard/settings/page.tsx`: interface + state + toggle UI (section "Iklan Interstitial").
+- Build + PM2 restart `masterpanel` OK; `GET /api/config` sudah return field baru.
+
+### BLOCKER
+- Belum commit/push: server tidak punya kredensial GitHub (tidak ada token HTTPS, SSH key
+  tidak authorized — `git@github.com: Permission denied (publickey)`).
+- Setelah push, WAJIB (AGENTS.md): pantau GH Actions by commit SHA sampai success, verifikasi
+  version.json 2.7.1/32, APK SHA-256 publik=server, cache BYPASS.

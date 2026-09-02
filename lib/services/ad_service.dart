@@ -19,6 +19,9 @@ class AdService {
   static const String socialBarScript =
       'https://pl31014943.profitableratecpmnetwork.com/66/6c/7c/666c7ce659a3b0bde35db22bfcdca692.js';
 
+  /// Di-set dari remote config (MasterPanel). false = matikan iklan interstitial.
+  static bool interstitialAdsEnabled = true;
+
   static int _episodeCounter = 0;
 
   static const int _minDuration = 10;
@@ -32,6 +35,7 @@ class AdService {
   /// Episode 3: Variant A (normal skip)
   /// Episode 6: Variant B (fake skip)
   static String? shouldShowAd() {
+    if (!interstitialAdsEnabled) return null;
     _episodeCounter++;
     if (_episodeCounter % 6 == 0) return 'B'; // Aggressive
     if (_episodeCounter % 3 == 0) return 'A'; // Normal

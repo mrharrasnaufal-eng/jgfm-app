@@ -13,6 +13,7 @@ import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'screens/maintenance_screen.dart';
 import 'screens/search_screen.dart';
+import 'services/ad_service.dart';
 import 'services/auth_service.dart';
 import 'services/coin_service.dart';
 import 'services/fcm_service.dart';
@@ -145,6 +146,7 @@ class _MainScreenState extends State<MainScreen> {
 
     if (!mounted) return;
     setState(() => _config = loadedConfig);
+    AdService.interstitialAdsEnabled = loadedConfig.interstitialAdsEnabled;
 
     if (showSplash) {
       // Keep the branded splash visible for a minimum duration.
