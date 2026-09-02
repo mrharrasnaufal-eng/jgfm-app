@@ -59,6 +59,24 @@ class Drama {
     if (coverHorizontal == null || coverHorizontal!.isEmpty) return proxiedCover;
     return 'https://jagatfilm.com/api/img?url=${Uri.encodeComponent(coverHorizontal!)}';
   }
+
+  /// Kode singkat 2 huruf untuk badge sumber drama (misal shortmax → SM).
+  String get sourceCode {
+    const map = <String, String>{
+      'shortmax': 'SM', 'cashdrama': 'CD', 'flickshort': 'FS',
+      'flickreels': 'FR', 'shotshort': 'SH', 'bilitv': 'BT',
+      'netshort': 'NS', 'reelshort': 'RS', 'rapidtv': 'RT',
+      'melolo': 'ML', 'microdrama': 'MD', 'dramabite': 'DT',
+      'dotdrama': 'DD', 'dramabox': 'DB', 'wetv': 'WT',
+      'starshort': 'SS', 'dramapops': 'DP', 'meloshort': 'MS',
+      'freereels': 'FE', 'reelife': 'RL', 'dramarush': 'DU',
+      'stardusttv': 'SD', 'sodareels': 'SO', 'radreels': 'RA',
+      'dramawave': 'DW', 'dramanova': 'DN', 'fundrama': 'FD',
+      'vigloo': 'VG', 'moviebox': 'MB',
+    };
+    return map[source] ??
+        (source.isEmpty ? '?' : source.substring(0, 2).toUpperCase());
+  }
 }
 
 class DramaDetail extends Drama {

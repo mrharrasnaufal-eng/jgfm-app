@@ -134,6 +134,8 @@ class _MainShellState extends State<MainShell> {
               HomeScreen(
                 logoUrl: widget.logoUrl ?? '',
                 announcement: widget.announcement ?? '',
+                unreadCount: _unreadCount,
+                onOpenInbox: _openInbox,
               ),
               ForYouScreen(
                 providers: widget.forYouProviders,
@@ -145,58 +147,6 @@ class _MainShellState extends State<MainShell> {
             ],
           ),
 
-          // Bell icon overlay — top right, safe area aware
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 8,
-            right: 12,
-            child: GestureDetector(
-              onTap: _openInbox,
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppTheme.surface.withValues(alpha: 0.9),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppTheme.divider, width: 0.5),
-                ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    const Icon(
-                      Icons.notifications_rounded,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                    if (_unreadCount > 0)
-                      Positioned(
-                        top: 6,
-                        right: 6,
-                        child: Container(
-                          padding: const EdgeInsets.all(3),
-                          decoration: const BoxDecoration(
-                            color: AppTheme.accent,
-                            shape: BoxShape.circle,
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 16,
-                            minHeight: 16,
-                          ),
-                          child: Text(
-                            _unreadCount > 9 ? '9+' : _unreadCount.toString(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
         ],
       ),
       bottomNavigationBar: Container(

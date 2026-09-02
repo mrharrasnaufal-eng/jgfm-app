@@ -78,7 +78,7 @@ class DramaCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        drama.source,
+                        drama.sourceCode,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 9,

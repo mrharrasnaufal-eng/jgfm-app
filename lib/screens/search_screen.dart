@@ -149,7 +149,22 @@ class _SearchScreenState extends State<SearchScreen> {
     });
   }
 
+  void _logSearch(String query) {
+    // Catat query pencarian untuk trending "Sedang Tren" (best-effort).
+    final q = query.trim();
+    if (q.isEmpty) return;
+    http
+        .post(
+          Uri.parse('https://www.jagatfilm.com/api/search/log'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'query': q}),
+        )
+        .timeout(const Duration(seconds: 5))
+        .catchError((_) {});
+  }
+
   Future<void> _performSearch(String query) async {
+    _logSearch(query);
     setState(() {
       _isLoading = true;
       _error = null;

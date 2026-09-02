@@ -10,11 +10,15 @@ import 'search_screen.dart';
 class HomeScreen extends StatefulWidget {
   final String logoUrl;
   final String announcement;
+  final int unreadCount;
+  final VoidCallback? onOpenInbox;
 
   const HomeScreen({
     super.key,
     this.logoUrl = '',
     this.announcement = '',
+    this.unreadCount = 0,
+    this.onOpenInbox,
   });
 
   @override
@@ -104,41 +108,55 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ),
             ),
-            const SizedBox(width: AppSpacing.sm),
           ] else ...[
             const Icon(
               Icons.movie_filter_rounded,
               color: AppTheme.accent,
               size: 24,
             ),
-            const SizedBox(width: AppSpacing.sm),
           ],
-          const Text(
-            AppStrings.appName,
-            style: TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+          const SizedBox(width: AppSpacing.sm),
+          // Search bar (pill) — tap untuk buka SearchScreen
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SearchScreen()),
+                );
+              },
+              child: Container(
+                height: 40,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: AppTheme.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppTheme.divider, width: 0.5),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.search_rounded,
+                      color: AppTheme.textSecondary,
+                      size: 20,
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Cari drama disini...',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-          const Spacer(),
-          // Search button
-          IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SearchScreen()),
-              );
-            },
-            icon: const Icon(
-              Icons.search_rounded,
-              color: AppTheme.textPrimary,
-              size: 24,
-            ),
-            tooltip: 'Cari',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-          ),
+          const SizedBox(width: AppSpacing.sm),
           // Koin button
           IconButton(
             onPressed: () {
@@ -152,6 +170,56 @@ class _HomeScreenState extends State<HomeScreen>
             tooltip: 'Koin',
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          ),
+          // Bell button
+          GestureDetector(
+            onTap: widget.onOpenInbox,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppTheme.surface.withValues(alpha: 0.9),
+                shape: BoxShape.circle,
+                border: Border.all(color: AppTheme.divider, width: 0.5),
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const Icon(
+                    Icons.notifications_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                  if (widget.unreadCount > 0)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                          color: AppTheme.accent,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          widget.unreadCount > 9
+                              ? '9+'
+                              : widget.unreadCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
