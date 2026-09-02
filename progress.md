@@ -1371,3 +1371,29 @@ padahal tab-nya tidak aktif (IndexedStack keep-alive semua tab).
 - Cache `cf-cache-status: BYPASS`.
 - Endpoint auto teruji (skip disabled / 403 tanpa cron_key). Default `enabled: false`.
 - ⚠️ Token GitHub `ghp_9iA3gdWev...` dipakai lagi — owner WAJIB revoke/rotate.
+
+---
+
+## SESI 24 — NOTIF SAAT-BUKA + ALUR IZIN NOTIFIKASI (v2.7.11+42, 2 Sep 2026)
+
+### Status: DEPLOY BERHASIL & TERVERIFIKASI ✅
+
+### APK
+- `MainActivity.kt`: method `openNotificationSettings` (buka pengaturan notifikasi app).
+- `notification_service.dart`: `areNotificationsEnabled`, `shouldPromptPermission` (≥1 jam),
+  `markPermissionPrompted`, `openNotificationSettings`, `maybeShowOnOpenDrama` (cooldown 1 jam,
+  fetch `/api/notifications/auto/random`, showCustomNotification drama:<id>).
+- `main.dart`: `_scheduleOnOpenDramaNotification` (timer 1 menit setelah buka) +
+  `_maybePromptNotificationPermission` (popup "Aktifkan Notifikasi" SETELAH popup awal ditutup).
+- `pubspec.yaml`: version **2.7.11+42**.
+
+### MasterPanel (server)
+- `/api/notifications/auto/random` (public): balikin 1 drama acak non-duplikat (skip auto_notify_sent).
+
+### ✅ Deploy terverifikasi (2 Sep 2026 ~16:00 UTC)
+- Commit `517f9ed`, GH Actions run `33652873301` conclusion **success**.
+- version.json publik & server: version `2.7.11`, versionCode `42`.
+- **SHA-256 publik = server:** `06a8d706f25de50cf15b2420108287abaa07cebfb4d78b30d9df19074f132d46`.
+- Cache `cf-cache-status: BYPASS`.
+- Endpoint random teruji (balikin drama flickreels).
+- ⚠️ Token GitHub `ghp_9iA3gdWev...` dipakai lagi — owner WAJIB revoke/rotate.
