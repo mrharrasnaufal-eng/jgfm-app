@@ -21,7 +21,15 @@ class ForYouScreen extends StatefulWidget {
   /// Provider pilihan admin (dari remote config). Kosong = semua provider.
   final List<String> providers;
 
-  const ForYouScreen({super.key, this.providers = const []});
+  /// True bila tab "Untuk Anda" sedang aktif (dilihat user). Video hanya
+  /// auto-play saat tab ini aktif — tidak saat user masih di Beranda.
+  final bool isTabActive;
+
+  const ForYouScreen({
+    super.key,
+    this.providers = const [],
+    this.isTabActive = true,
+  });
 
   @override
   State<ForYouScreen> createState() => _ForYouScreenState();
@@ -358,7 +366,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
         final item = _items[index];
         return _FeedPage(
           item: item,
-          isActive: index == _currentIndex,
+          isActive: widget.isTabActive && index == _currentIndex,
           streamUrl: _streamUrls[item.drama.id],
           failed: _failedIds.contains(item.drama.id),
           onTapLike: () => _handleLike(index),

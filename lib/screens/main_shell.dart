@@ -39,21 +39,9 @@ class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
   int _unreadCount = 0;
 
-  late final List<Widget> _screens;
-
   @override
   void initState() {
     super.initState();
-    _screens = [
-      HomeScreen(
-        logoUrl: widget.logoUrl ?? '',
-        announcement: widget.announcement ?? '',
-      ),
-      ForYouScreen(providers: widget.forYouProviders),
-      const CoinScreen(),
-      const WatchlistScreen(),
-      const ProfileScreen(),
-    ];
     _checkUnread();
   }
 
@@ -142,7 +130,19 @@ class _MainShellState extends State<MainShell> {
           // Main content
           IndexedStack(
             index: _currentIndex,
-            children: _screens,
+            children: [
+              HomeScreen(
+                logoUrl: widget.logoUrl ?? '',
+                announcement: widget.announcement ?? '',
+              ),
+              ForYouScreen(
+                providers: widget.forYouProviders,
+                isTabActive: _currentIndex == 1,
+              ),
+              const CoinScreen(),
+              const WatchlistScreen(),
+              const ProfileScreen(),
+            ],
           ),
 
           // Bell icon overlay — top right, safe area aware
