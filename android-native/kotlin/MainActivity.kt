@@ -2,6 +2,7 @@ package com.jagatfilm.jagatfilm
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
@@ -108,6 +109,19 @@ class MainActivity : FlutterActivity() {
                         )
                     } catch (e: Exception) {
                         result.error("ANDROID_ID_ERROR", e.message, null)
+                    }
+                }
+                "getDeviceInfo" -> {
+                    // Info device untuk analytics (model + versi Android).
+                    // Best-effort — jangan pernah crash.
+                    try {
+                        result.success(mapOf(
+                            "model" to (Build.MODEL ?: ""),
+                            "manufacturer" to (Build.MANUFACTURER ?: ""),
+                            "os" to ("Android ${Build.VERSION.RELEASE}")
+                        ))
+                    } catch (e: Exception) {
+                        result.error("DEVICE_INFO_ERROR", e.message, null)
                     }
                 }
                 else -> result.notImplemented()
