@@ -31,6 +31,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   String? _error;
   String _rawHdUrl = '';
   String _rawSdUrl = '';
+  // Prefetch stream URL episode berikutnya — navigasi episode terasa instan.
+  final Map<int, StreamData> _prefetchCache = {};
   int _currentEpisode = 1;
   bool _isHD = true;
   bool _showOverlay = true;
@@ -74,6 +76,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return headers;
   }
 
+  void _prefetchEpisode(int ep) {
+    if (ep < 1 || ep > widget.totalEpisodes) return;
+    if (_prefetchCache.containsKey(ep)) return;
+    _api.getStream(widget.drama.id, ep).then((data) {
+      if (mounted) _prefetchCache[ep] = data;
+    }).catchError((_) {
+      // Prefetch best-effort — abaikan error.
+    });
+  }
+
   Future<void> _loadStream() async {
     setState(() {
       _isLoading = true;
@@ -82,8 +94,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
     });
 
     try {
-      final streamData =
-          await _api.getStream(widget.drama.id, _currentEpisode);
+      // Gunakan prefetch cache bila tersedia (navigasi episode instan).
+      final StreamData streamData;
+      final cached = _prefetchCache.remove(_currentEpisode);
+      if (cached != null) {
+        streamData = cached;
+      } else {
+        streamData = await _api.getStream(widget.drama.id, _currentEpisode);
+      }
 
       _rawHdUrl = streamData.hdUrl;
       _rawSdUrl = streamData.sdUrl;
@@ -129,6 +147,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
       // Record watch history & update watchlist progress
       _recordHistory();
+
+      // Prefetch episode berikutnya di background
+      _prefetchEpisode(_currentEpisode + 1);
 
       // Hide overlay after video starts
       Future.delayed(const Duration(seconds: 3), () {
