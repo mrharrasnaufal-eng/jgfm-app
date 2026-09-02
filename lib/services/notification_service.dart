@@ -206,11 +206,14 @@ class NotificationService {
   /// Notif drama "saat buka": cek cooldown 1 jam → ambil drama acak → tampil notif lokal.
   Future<void> maybeShowOnOpenDrama() async {
     try {
+      if (!_initialized) await init();
+
       final prefs = await SharedPreferences.getInstance();
       final lastStr = prefs.getString(_onOpenNotifAtKey);
       if (lastStr != null) {
         final last = DateTime.tryParse(lastStr);
         if (last != null && DateTime.now().difference(last).inMinutes < 60) {
+          debugPrint('OnOpenDrama: skip (cooldown)');
           return; // cooldown 1 jam
         }
       }
@@ -221,9 +224,13 @@ class NotificationService {
       final res = await http
           .get(uri, headers: const {'Accept': 'application/json'})
           .timeout(const Duration(seconds: 10));
+      debugPrint('OnOpenDrama: fetch HTTP ${res.statusCode}');
       if (res.statusCode != 200) return;
       final decoded = jsonDecode(res.body);
-      if (decoded is! Map || decoded['success'] != true || decoded['enabled'] != true) return;
+      if (decoded is! Map || decoded['success'] != true || decoded['enabled'] != true) {
+        debugPrint('OnOpenDrama: disabled / no drama');
+        return;
+      }
       final drama = decoded['drama'];
       if (drama is! Map) return;
 
@@ -233,8 +240,10 @@ class NotificationService {
       final id = drama['id']?.toString() ?? '';
       if (title.isEmpty || id.isEmpty) return;
 
+      // id notifikasi harus 32-bit int (millisecondsSinceEpoch bisa overflow Kotlin Int).
+      final notifId = DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
       await _nativeChannel.invokeMethod('showCustomNotification', {
-        'id': DateTime.now().millisecondsSinceEpoch,
+        'id': notifId,
         'title': title,
         'message': message,
         'image_url': imageUrl.isNotEmpty ? imageUrl : null,
@@ -242,8 +251,8 @@ class NotificationService {
       });
 
       await prefs.setString(_onOpenNotifAtKey, DateTime.now().toIso8601String());
-    } catch (_) {
-      // Best-effort — abaikan error.
+    } catch (e) {
+      debugPrint('OnOpenDrama: error $e');
     }
   }
 
