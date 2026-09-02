@@ -1250,3 +1250,28 @@ supaya swipe ke episode berikutnya instan (skip API call getStream ~1.3s).
 - **SHA-256 publik = server:** `afd041d56fca0d0ba6e3eb86dcbc2199f1028248e14d5c8bb268935ea270d8c9`.
 - Cache `cf-cache-status: BYPASS`.
 - ⚠️ Token GitHub `ghp_9iA3gdWev...` dipakai lagi — owner WAJIB revoke/rotate.
+
+---
+
+## SESI 19 — FIX AUTO-PLAY "UNTUK ANDA" (v2.7.5+36, 2 Sep 2026)
+
+### Status: DEPLOY BERHASIL & TERVERIFIKASI ✅
+
+### Masalah
+Saat buka app (landing di Beranda), video feed "Untuk Anda" ikut auto-play & bunyi,
+padahal tab-nya tidak aktif (IndexedStack keep-alive semua tab).
+
+### Fix
+- `ForYouScreen`: field `isTabActive`; `isActive` di PageView = `isTabActive && index == _currentIndex`.
+  Video hanya auto-play saat tab "Untuk Anda" aktif.
+- `MainShell`: `_screens` di-build inline (bukan `late final`) supaya `isTabActive: _currentIndex == 1`
+  ter-update saat tab ganti.
+- Bonus (v2.7.4): feed auto-play **muted by default** + tombol speaker mute/unmute kanan atas.
+- `pubspec.yaml`: version **2.7.5+36**.
+
+### ✅ Deploy terverifikasi (2 Sep 2026 ~11:50 UTC)
+- Commit `9ce1083`, GH Actions run `33629164368` conclusion **success** (run 2.7.4 di-cancel).
+- version.json publik & server: version `2.7.5`, versionCode `36`.
+- **SHA-256 publik = server:** `4c45f52f323143f84d23bd2c1a7a037701247ca9c61c1a5339a1e6ba38649599`.
+- Cache `cf-cache-status: BYPASS`.
+- ⚠️ Token GitHub `ghp_9iA3gdWev...` dipakai lagi — owner WAJIB revoke/rotate.
