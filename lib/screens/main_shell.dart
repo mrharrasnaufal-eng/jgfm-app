@@ -136,6 +136,7 @@ class _MainShellState extends State<MainShell> {
                 announcement: widget.announcement ?? '',
                 unreadCount: _unreadCount,
                 onOpenInbox: _openInbox,
+                onOpenCoins: () => _onTap(2),
               ),
               ForYouScreen(
                 providers: widget.forYouProviders,

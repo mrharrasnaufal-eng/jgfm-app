@@ -12,6 +12,7 @@ class HomeScreen extends StatefulWidget {
   final String announcement;
   final int unreadCount;
   final VoidCallback? onOpenInbox;
+  final VoidCallback? onOpenCoins;
 
   const HomeScreen({
     super.key,
@@ -19,6 +20,7 @@ class HomeScreen extends StatefulWidget {
     this.announcement = '',
     this.unreadCount = 0,
     this.onOpenInbox,
+    this.onOpenCoins,
   });
 
   @override
@@ -159,9 +161,7 @@ class _HomeScreenState extends State<HomeScreen>
           const SizedBox(width: AppSpacing.sm),
           // Koin button
           IconButton(
-            onPressed: () {
-              // TODO: Navigate to koin/coins screen
-            },
+            onPressed: widget.onOpenCoins,
             icon: const Icon(
               Icons.monetization_on_rounded,
               color: AppTheme.gold,
