@@ -1226,3 +1226,27 @@ Analytics MasterPanel jadi berfungsi (sebelumnya placeholder).
 ### Catatan
 - Data Analytics baru terisi setelah user pakai APK v2.7.2+33 (heartbeat pertama).
 - "Online sekarang" = last_seen_at < 5 menit (heartbeat periodik 5 menit).
+
+---
+
+## SESI 18 — PREFETCH STREAM URL EPISODE BERIKUTNYA (v2.7.3+34, 2 Sep 2026)
+
+### Status: DEPLOY BERHASIL & TERVERIFIKASI ✅
+
+### Tujuan
+Samakan APK dengan web: prefetch stream URL episode N+1 di background saat episode N dimuat,
+supaya swipe ke episode berikutnya instan (skip API call getStream ~1.3s).
+
+### Perubahan (lib/screens/player_screen.dart)
+- Field `Map<int, StreamData> _prefetchCache`.
+- Method `_prefetchEpisode(int ep)`: fetch stream URL di background (best-effort, try-catch).
+- `_loadStream()`: cek cache dulu (`_prefetchCache.remove(ep)`) sebelum fetch; setelah sukses
+  panggil `_prefetchEpisode(_currentEpisode + 1)`.
+- `pubspec.yaml`: version **2.7.3+34**.
+
+### ✅ Deploy terverifikasi (2 Sep 2026 ~11:30 UTC)
+- Commit `cec8832`, GH Actions run `33624948064` conclusion **success**.
+- version.json publik & server: version `2.7.3`, versionCode `34`.
+- **SHA-256 publik = server:** `afd041d56fca0d0ba6e3eb86dcbc2199f1028248e14d5c8bb268935ea270d8c9`.
+- Cache `cf-cache-status: BYPASS`.
+- ⚠️ Token GitHub `ghp_9iA3gdWev...` dipakai lagi — owner WAJIB revoke/rotate.
