@@ -1186,3 +1186,43 @@ Iklan interstitial "tiap 3 episode" di PlayerScreen kini bisa di on/off dari Mas
 - Cache: `no-store`, `cdn-cache-control: no-store`, `cf-cache-status: BYPASS`.
 - MasterPanel `/api/config` sudah return `interstitial_ads_enabled: true`.
 - ⚠️ Token GitHub `ghp_9iA3gdWev...` dipakai untuk push — owner WAJIB revoke/rotate.
+
+---
+
+## SESI 17 — TRACKING INSTALL + HEARTBEAT UNTUK ANALYTICS (v2.7.2+33, 2 Sep 2026)
+
+### Status: DEPLOY BERHASIL & TERVERIFIKASI ✅
+
+### Tujuan
+Pantau instalasi, versi + tipe HP, frekuensi online, dan status online user APK → halaman
+Analytics MasterPanel jadi berfungsi (sebelumnya placeholder).
+
+### Backend (jagatfilm.com)
+- Tabel `app_devices` (device_id PK, app_version, device_model, os_version, first/last_seen_at,
+  session_count) + `app_heartbeats` (device_id, created_at) di masterpanel_db.
+- Endpoint `POST /api/app/heartbeat`: upsert app_devices + insert app_heartbeats bila session=true.
+
+### APK (lib/)
+- `MainActivity.kt`: method `getDeviceInfo` → model/manufacturer/os (Build.*). Copy via workflow.
+- `services/analytics_service.dart` (BARU): baca device_id (SharedPreferences), versi
+  (package_info_plus), model/os (MethodChannel), kirim heartbeat session + periodik 5 menit.
+- `main.dart`: `unawaited(AnalyticsService.instance.start())` setelah remote config load.
+- `pubspec.yaml`: version **2.7.2+33**.
+- Tanpa dependency baru (device info via MethodChannel, bukan device_info_plus).
+
+### MasterPanel
+- Endpoint `GET /api/analytics/overview`: installs, DAU, WAU, MAU, online now, distribusi model + versi.
+- `dashboard/analytics/page.tsx` di-rewrite dari placeholder → data real.
+- `dashboard/cache/page.tsx` (BARU) + endpoint `/api/cache/status`: monitoring Redis pre-warm.
+
+### ✅ Deploy terverifikasi (2 Sep 2026 ~11:15 UTC)
+- Commit `7ac2928`, GH Actions run `33623331894` conclusion **success**.
+- version.json publik & server: version `2.7.2`, versionCode `33`.
+- **SHA-256 publik = server:** `c6688e1df2dfa0adeedeaae448116a32f06c1ead271534bc4a2dc703fe993b72`.
+- Cache: `no-store`, `cf-cache-status: BYPASS`.
+- Endpoint heartbeat diuji (session logic benar, data test dibersihkan).
+- ⚠️ Token GitHub `ghp_9iA3gdWev...` dipakai lagi — owner WAJIB revoke/rotate.
+
+### Catatan
+- Data Analytics baru terisi setelah user pakai APK v2.7.2+33 (heartbeat pertama).
+- "Online sekarang" = last_seen_at < 5 menit (heartbeat periodik 5 menit).
