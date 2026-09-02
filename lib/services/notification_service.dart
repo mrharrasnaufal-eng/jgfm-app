@@ -159,6 +159,94 @@ class NotificationService {
     }
   }
 
+  static const String _permPromptedAtKey = 'notification_perm_prompted_at';
+  static const String _onOpenNotifAtKey = 'on_open_drama_notif_at';
+  static const String _randomDramaEndpoint =
+      'https://masterpanel.jagatfilm.com/api/notifications/auto/random';
+
+  Future<bool> areNotificationsEnabled() async {
+    try {
+      final androidImpl = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      if (androidImpl != null) {
+        return await androidImpl.areNotificationsEnabled() ?? true;
+      }
+    } catch (_) {}
+    return true; // asumsi enabled supaya tidak spam prompt
+  }
+
+  /// True bila perlu tampil popup "Aktifkan Notifikasi" (izin ditolak & ≥1 jam sejak prompt terakhir).
+  Future<bool> shouldPromptPermission() async {
+    try {
+      if (await areNotificationsEnabled()) return false;
+      final prefs = await SharedPreferences.getInstance();
+      final lastStr = prefs.getString(_permPromptedAtKey);
+      if (lastStr == null) return true;
+      final last = DateTime.tryParse(lastStr);
+      if (last == null) return true;
+      return DateTime.now().difference(last).inMinutes >= 60;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> markPermissionPrompted() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_permPromptedAtKey, DateTime.now().toIso8601String());
+    } catch (_) {}
+  }
+
+  Future<void> openNotificationSettings() async {
+    try {
+      await _nativeChannel.invokeMethod('openNotificationSettings');
+    } catch (_) {}
+  }
+
+  /// Notif drama "saat buka": cek cooldown 1 jam → ambil drama acak → tampil notif lokal.
+  Future<void> maybeShowOnOpenDrama() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastStr = prefs.getString(_onOpenNotifAtKey);
+      if (lastStr != null) {
+        final last = DateTime.tryParse(lastStr);
+        if (last != null && DateTime.now().difference(last).inMinutes < 60) {
+          return; // cooldown 1 jam
+        }
+      }
+
+      final uri = Uri.parse(_randomDramaEndpoint).replace(
+        queryParameters: {'t': DateTime.now().millisecondsSinceEpoch.toString()},
+      );
+      final res = await http
+          .get(uri, headers: const {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) return;
+      final decoded = jsonDecode(res.body);
+      if (decoded is! Map || decoded['success'] != true || decoded['enabled'] != true) return;
+      final drama = decoded['drama'];
+      if (drama is! Map) return;
+
+      final title = drama['title']?.toString() ?? '';
+      final message = drama['description']?.toString() ?? '';
+      final imageUrl = drama['cover']?.toString() ?? '';
+      final id = drama['id']?.toString() ?? '';
+      if (title.isEmpty || id.isEmpty) return;
+
+      await _nativeChannel.invokeMethod('showCustomNotification', {
+        'id': DateTime.now().millisecondsSinceEpoch,
+        'title': title,
+        'message': message,
+        'image_url': imageUrl.isNotEmpty ? imageUrl : null,
+        'action': 'drama:$id',
+      });
+
+      await prefs.setString(_onOpenNotifAtKey, DateTime.now().toIso8601String());
+    } catch (_) {
+      // Best-effort — abaikan error.
+    }
+  }
+
   static void _onTap(NotificationResponse response) {
     final payload = response.payload;
     if (payload == null || payload.isEmpty) return;

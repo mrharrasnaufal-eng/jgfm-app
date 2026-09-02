@@ -124,6 +124,18 @@ class MainActivity : FlutterActivity() {
                         result.error("DEVICE_INFO_ERROR", e.message, null)
                     }
                 }
+                "openNotificationSettings" -> {
+                    // Buka pengaturan notifikasi app (untuk popup "Aktifkan Notifikasi").
+                    try {
+                        val intent = android.content.Intent(
+                            android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS
+                        ).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName)
+                        startActivity(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("OPEN_SETTINGS_ERROR", e.message, null)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }

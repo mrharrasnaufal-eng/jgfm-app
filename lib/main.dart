@@ -185,6 +185,9 @@ class _MainScreenState extends State<MainScreen> {
     try {
       if (!mounted || _config.maintenanceMode) return;
 
+      // Notif drama "saat buka": 1 menit setelah app dibuka (fire-and-forget).
+      unawaited(_scheduleOnOpenDramaNotification());
+
       final minimumUpdateShown = await UpdateService.checkMinimumVersion(
         context,
         minimumVersion: _config.minimumVersion,
@@ -207,6 +210,9 @@ class _MainScreenState extends State<MainScreen> {
         }
       }
 
+      // Setelah popup awal ditutup → cek & tampil popup izin notifikasi.
+      await _maybePromptNotificationPermission();
+
       if (!_automaticUpdateChecked && mounted) {
         _automaticUpdateChecked = true;
         await UpdateService.checkForUpdate(context);
@@ -219,6 +225,47 @@ class _MainScreenState extends State<MainScreen> {
       // Remote notices and updates are optional and must never crash the app.
     } finally {
       _noticesRunning = false;
+    }
+  }
+
+  Future<void> _scheduleOnOpenDramaNotification() async {
+    await Future.delayed(const Duration(minutes: 1));
+    if (!mounted) return;
+    await NotificationService.instance.maybeShowOnOpenDrama();
+  }
+
+  Future<void> _maybePromptNotificationPermission() async {
+    try {
+      if (!mounted) return;
+      final shouldPrompt = await NotificationService.instance.shouldPromptPermission();
+      if (!shouldPrompt || !mounted) return;
+
+      final enable = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Aktifkan Notifikasi'),
+          content: const Text(
+            'Aktifkan notifikasi agar kamu tidak ketinggalan drama terbaru.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Nanti'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Aktifkan'),
+            ),
+          ],
+        ),
+      );
+
+      if (enable == true) {
+        await NotificationService.instance.openNotificationSettings();
+      }
+      await NotificationService.instance.markPermissionPrompted();
+    } catch (_) {
+      // Best-effort — abaikan error.
     }
   }
 
