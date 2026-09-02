@@ -1323,3 +1323,23 @@ padahal tab-nya tidak aktif (IndexedStack keep-alive semua tab).
 - Cache `cf-cache-status: BYPASS`.
 - Genre terverifikasi string; trending teruji (test query → drama match).
 - ⚠️ Token GitHub `ghp_9iA3gdWev...` dipakai lagi — owner WAJIB revoke/rotate.
+
+---
+
+## SESI 22 — FIX SOURCE LABEL GRID + TOMBOL KOIN (v2.7.9+40, 2 Sep 2026)
+
+### Status: DEPLOY BERHASIL & TERVERIFIKASI ✅
+
+### Perubahan
+- `drama_card_grid.dart`: badge provider (kanan-atas) pakai `drama.sourceCode` (singkatan),
+  bukan `drama.source` penuh. Ini kartu yang dipakai Beranda (grid "Untukmu").
+- `home_screen.dart` + `main_shell.dart`: tombol koin AppBar kini `onOpenCoins: () => _onTap(2)`
+  (pindah ke tab Koin) — sebelumnya TODO kosong.
+- `pubspec.yaml`: version **2.7.9+40**.
+
+### ✅ Deploy terverifikasi (2 Sep 2026 ~13:20 UTC)
+- Commit `9cdf033`, GH Actions run `33640173592` conclusion **success** (run 2.7.8 di-cancel).
+- version.json publik & server: version `2.7.9`, versionCode `40`.
+- **SHA-256 publik = server:** `cde659023d3835bdadef36236def067aa48d168eb6f15e7db89cc71f882732de`.
+- Cache `cf-cache-status: BYPASS`.
+- ⚠️ Token GitHub `ghp_9iA3gdWev...` dipakai lagi — owner WAJIB revoke/rotate.
