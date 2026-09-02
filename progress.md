@@ -1275,3 +1275,26 @@ padahal tab-nya tidak aktif (IndexedStack keep-alive semua tab).
 - **SHA-256 publik = server:** `4c45f52f323143f84d23bd2c1a7a037701247ca9c61c1a5339a1e6ba38649599`.
 - Cache `cf-cache-status: BYPASS`.
 - ⚠️ Token GitHub `ghp_9iA3gdWev...` dipakai lagi — owner WAJIB revoke/rotate.
+
+---
+
+## SESI 20 — REVERT MUTE "UNTUK ANDA" (v2.7.6+37, 2 Sep 2026)
+
+### Status: DEPLOY BERHASIL & TERVERIFIKASI ✅
+
+### Keputusan final perilaku feed "Untuk Anda"
+- TIDAK ada mute — video bersuara normal (full volume) seperti semula.
+- Video HANYA auto-play saat tab "Untuk Anda" aktif (`isTabActive`).
+- Saat di tab lain / pertama buka app → video "Untuk Anda" diam (tidak main sama sekali).
+
+### Perubahan (dari v2.7.5)
+- Revert: `setVolume(1.0)`, hapus `_muted`, hapus `_toggleMute`, hapus tombol speaker.
+- Keep: `isTabActive` (dari v2.7.5).
+- `pubspec.yaml`: version **2.7.6+37**.
+
+### ✅ Deploy terverifikasi (2 Sep 2026 ~12:05 UTC)
+- Commit `c5abaac`, GH Actions run `33631375545` conclusion **success**.
+- version.json publik & server: version `2.7.6`, versionCode `37`.
+- **SHA-256 publik = server:** `81ac7a48ef23a4c325aa87f090628ea6d8325257c8f0bb018596ad17e9f3e4a6`.
+- Cache `cf-cache-status: BYPASS`.
+- ⚠️ Token GitHub `ghp_9iA3gdWev...` dipakai lagi — owner WAJIB revoke/rotate.
