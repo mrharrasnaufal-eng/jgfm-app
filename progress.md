@@ -1343,3 +1343,31 @@ padahal tab-nya tidak aktif (IndexedStack keep-alive semua tab).
 - **SHA-256 publik = server:** `cde659023d3835bdadef36236def067aa48d168eb6f15e7db89cc71f882732de`.
 - Cache `cf-cache-status: BYPASS`.
 - ⚠️ Token GitHub `ghp_9iA3gdWev...` dipakai lagi — owner WAJIB revoke/rotate.
+
+---
+
+## SESI 23 — NOTIFIKASI OTOMATIS DRAMA + AKSI drama:<id> (v2.7.10+41, 2 Sep 2026)
+
+### Status: DEPLOY BERHASIL & TERVERIFIKASI ✅
+
+### APK
+- `notification_service.dart`: `_action()` izinkan `drama:<id>`.
+- `main.dart`: `_handleNotificationAction` handle `drama:<id>` → fetch `/api/drama/detail`
+  → buka `DetailScreen`. Tambah import http/jsonDecode/Drama/DetailScreen.
+- `pubspec.yaml`: version **2.7.10+41**.
+
+### MasterPanel
+- `dashboard/notifications/page.tsx`: section "Notifikasi Otomatis Drama" (toggle, provider
+  multi-select, jam mulai/selesai WIB).
+- `/api/notifications/auto-settings` (GET/POST, admin) → file `data/auto-notify.json`.
+- `/api/notifications/auto` (GET, cron_key) → pilih 1 drama acak non-duplikat, buat notif +
+  push FCM. Tabel `auto_notify_sent` (anti-duplikat).
+- Crontab `0 1,4,7,10,13 * * *` (UTC = 08/11/14/17/20 WIB) → hit endpoint auto.
+
+### ✅ Deploy terverifikasi (2 Sep 2026 ~14:00 UTC)
+- Commit `14b884c`, GH Actions run `33648346019` conclusion **success**.
+- version.json publik & server: version `2.7.10`, versionCode `41`.
+- **SHA-256 publik = server:** `81b640521f7d65531a8351816ad03258f068dada666ef791168c8454be581089`.
+- Cache `cf-cache-status: BYPASS`.
+- Endpoint auto teruji (skip disabled / 403 tanpa cron_key). Default `enabled: false`.
+- ⚠️ Token GitHub `ghp_9iA3gdWev...` dipakai lagi — owner WAJIB revoke/rotate.
