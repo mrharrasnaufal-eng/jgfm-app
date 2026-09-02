@@ -1298,3 +1298,28 @@ padahal tab-nya tidak aktif (IndexedStack keep-alive semua tab).
 - **SHA-256 publik = server:** `81ac7a48ef23a4c325aa87f090628ea6d8325257c8f0bb018596ad17e9f3e4a6`.
 - Cache `cf-cache-status: BYPASS`.
 - ⚠️ Token GitHub `ghp_9iA3gdWev...` dipakai lagi — owner WAJIB revoke/rotate.
+
+---
+
+## SESI 21 — UI BERANDA + TRENDING PENCARIAN + FIX GENRE (v2.7.7+38, 2 Sep 2026)
+
+### Status: DEPLOY BERHASIL & TERVERIFIKASI ✅
+
+### APK
+- **AppBar Beranda**: hapus teks "JagatFilm", jadi `[logo] [🔍 Cari drama disini...] [🪙] [🔔]`.
+  Bell dipindah dari overlay global MainShell ke AppBar (hapus tumpang tindih koin/bell).
+- **Source label** thumbnail disingkat (SM/CD/FS/DB/dst) via getter `Drama.sourceCode`.
+- **SearchScreen**: catat query ke `POST /api/search/log` (untuk trending).
+
+### Backend (jagatfilm.com)
+- **Fix genre**: `normalizeGenreItems` di `dramas/route.ts` — genres/tags dict `{labelName}` jadi string.
+- **Trending dari pencarian**: tabel `search_log` + endpoint `/api/search/log` + rewrite
+  `/api/dramas/trending` (cocokkan query → judul drama, skor = frekuensi pencarian).
+
+### ✅ Deploy terverifikasi (2 Sep 2026 ~13:00 UTC)
+- Commit `a0529ac`, GH Actions run `33637901307` conclusion **success**.
+- version.json publik & server: version `2.7.7`, versionCode `38`.
+- **SHA-256 publik = server:** `b0e2df9e52c0d66211527fe5c80c82d61ab452d736e3867c0d877d132f3005dc`.
+- Cache `cf-cache-status: BYPASS`.
+- Genre terverifikasi string; trending teruji (test query → drama match).
+- ⚠️ Token GitHub `ghp_9iA3gdWev...` dipakai lagi — owner WAJIB revoke/rotate.
