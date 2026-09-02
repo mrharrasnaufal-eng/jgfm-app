@@ -118,7 +118,7 @@ class DramaCardGrid extends StatelessWidget {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          drama.source,
+                          drama.sourceCode,
                           style: const TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w600,
