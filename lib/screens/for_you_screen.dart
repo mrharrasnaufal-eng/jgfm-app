@@ -410,7 +410,6 @@ class _FeedPage extends StatefulWidget {
 class _FeedPageState extends State<_FeedPage> {
   VideoPlayerController? _controller;
   bool _userPaused = false;
-  bool _muted = true; // auto-play tanpa suara (TikTok-style)
 
   @override
   void initState() {
@@ -472,7 +471,7 @@ class _FeedPageState extends State<_FeedPage> {
       httpHeaders: _videoHeaders(url),
     )
       ..setLooping(true)
-      ..setVolume(_muted ? 0.0 : 1.0);
+      ..setVolume(1.0);
     _controller = controller;
 
     controller.initialize().then((_) {
@@ -495,11 +494,6 @@ class _FeedPageState extends State<_FeedPage> {
       _userPaused = !_userPaused;
     });
     _userPaused ? c.pause() : c.play();
-  }
-
-  void _toggleMute() {
-    setState(() => _muted = !_muted);
-    _controller?.setVolume(_muted ? 0.0 : 1.0);
   }
 
   @override
@@ -544,27 +538,6 @@ class _FeedPageState extends State<_FeedPage> {
             right: 8,
             bottom: 110,
             child: _buildActions(saved),
-          ),
-
-          // Tombol mute/unmute (kanan atas)
-          Positioned(
-            top: 16,
-            right: 12,
-            child: GestureDetector(
-              onTap: _toggleMute,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  _muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
-            ),
           ),
 
           // Gagal: pesan + auto skip
