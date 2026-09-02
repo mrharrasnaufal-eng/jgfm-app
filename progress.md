@@ -1158,7 +1158,7 @@ install ulang → device_id harus SAMA.
 
 ## SESI 16 — TOGGLE IKLAN INTERSTITIAL VIA REMOTE CONFIG (v2.7.1+32, 2 Sep 2026)
 
-### Status: IMPLEMENTASI SELESAI — BELUM DI-PUSH (menunggu token GitHub)
+### Status: DEPLOY BERHASIL & TERVERIFIKASI ✅
 
 ### Tujuan
 Iklan interstitial "tiap 3 episode" di PlayerScreen kini bisa di on/off dari MasterPanel
@@ -1178,8 +1178,11 @@ Iklan interstitial "tiap 3 episode" di PlayerScreen kini bisa di on/off dari Mas
 - `dashboard/settings/page.tsx`: interface + state + toggle UI (section "Iklan Interstitial").
 - Build + PM2 restart `masterpanel` OK; `GET /api/config` sudah return field baru.
 
-### BLOCKER
-- Belum commit/push: server tidak punya kredensial GitHub (tidak ada token HTTPS, SSH key
-  tidak authorized — `git@github.com: Permission denied (publickey)`).
-- Setelah push, WAJIB (AGENTS.md): pantau GH Actions by commit SHA sampai success, verifikasi
-  version.json 2.7.1/32, APK SHA-256 publik=server, cache BYPASS.
+### ✅ Deploy terverifikasi (2 Sep 2026 ~10:38 UTC)
+- Commit `a43c0e3`, GH Actions run `33619824023` conclusion **success**.
+- version.json publik & server: version `2.7.1`, versionCode `32`.
+- APK publik & server: HTTP 200, size 63.279.075 bytes.
+- **SHA-256 publik = server:** `e41afd61357bf88d86da2497df73251fd8e886d777056afa7c74fa5d6b503e91`.
+- Cache: `no-store`, `cdn-cache-control: no-store`, `cf-cache-status: BYPASS`.
+- MasterPanel `/api/config` sudah return `interstitial_ads_enabled: true`.
+- ⚠️ Token GitHub `ghp_9iA3gdWev...` dipakai untuk push — owner WAJIB revoke/rotate.
