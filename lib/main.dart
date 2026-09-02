@@ -1,14 +1,18 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'models/app_remote_config.dart';
+import 'models/drama.dart';
+import 'screens/detail_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'screens/maintenance_screen.dart';
@@ -257,8 +261,33 @@ class _MainScreenState extends State<MainScreen> {
       }
       return;
     }
+    if (payload.startsWith('drama:')) {
+      await _openDramaDetail(payload.substring('drama:'.length));
+      return;
+    }
     // Reuse the popup action handler for page:* actions.
     await _handlePopupAction(payload);
+  }
+
+  Future<void> _openDramaDetail(String id) async {
+    try {
+      final uri = Uri.parse(
+        'https://www.jagatfilm.com/api/drama/detail?id=${Uri.encodeComponent(id)}',
+      );
+      final res = await http
+          .get(uri, headers: const {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) return;
+      final decoded = jsonDecode(res.body);
+      if (decoded is! Map || decoded['data'] is! Map) return;
+      final drama =
+          Drama.fromJson(Map<String, dynamic>.from(decoded['data'] as Map));
+      if (!mounted) return;
+      final nav = JagatFilmApp.navigatorKey.currentState;
+      nav?.push(MaterialPageRoute(builder: (_) => DetailScreen(drama: drama)));
+    } catch (_) {
+      // Best-effort — abaikan error.
+    }
   }
 
   Future<void> _handlePopupAction(String action) async {

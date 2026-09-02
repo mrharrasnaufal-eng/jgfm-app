@@ -55,7 +55,15 @@ class AppNotification {
   static String _action(dynamic value) {
     if (value is! String) return '';
     final normalized = value.trim().toLowerCase();
-    return _allowedActions.contains(normalized) ? normalized : '';
+    if (_allowedActions.contains(normalized)) return normalized;
+    // drama:<id> — buka drama tertentu (id composite, misal shortmax-858418).
+    if (normalized.startsWith('drama:')) {
+      final id = normalized.substring('drama:'.length);
+      if (id.isNotEmpty && id.length <= 120 && !id.contains(' ')) {
+        return normalized;
+      }
+    }
+    return '';
   }
 
   /// Parse from JSON. Returns null if the payload is malformed / missing core fields.
