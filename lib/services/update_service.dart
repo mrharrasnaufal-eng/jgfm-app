@@ -7,9 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../utils/app_config.dart';
 
 class UpdateService {
-  static const String _versionUrl =
-      '${AppConfig.apiBaseUrl}/app/version.json';
-  static const String _fallbackApkUrl =
+  static String get _versionUrl => '${AppConfig.apiBaseUrl}/app/version.json';
+  static String get _fallbackApkUrl =>
       '${AppConfig.apiBaseUrl}/download/app-release.apk';
 
   /// Get current app version safely.

@@ -98,8 +98,7 @@ class NotificationService {
   NotificationService._();
   static final NotificationService instance = NotificationService._();
 
-  static const String _endpoint =
-      '${AppConfig.adminBaseUrl}/api/notifications';
+  static String get _endpoint => '${AppConfig.adminBaseUrl}/api/notifications';
   static const String _shownIdsKey = 'shown_notification_ids';
   static const String _pendingActionKey = 'pending_notification_action';
   static const int _maxShownIds = 200;
@@ -162,7 +161,7 @@ class NotificationService {
 
   static const String _permPromptedAtKey = 'notification_perm_prompted_at';
   static const String _onOpenNotifAtKey = 'on_open_drama_notif_at';
-  static const String _randomDramaEndpoint =
+  static String get _randomDramaEndpoint =>
       '${AppConfig.adminBaseUrl}/api/notifications/auto/random';
 
   Future<bool> areNotificationsEnabled() async {
