@@ -1,3 +1,4 @@
+import '../utils/app_config.dart';
 /// Model for a drama saved to the user's watchlist.
 class WatchlistItem {
   final String dramaId;
@@ -30,7 +31,7 @@ class WatchlistItem {
   /// Proxied cover URL via JagatFilm image proxy.
   String get proxiedCover {
     if (cover.isEmpty) return '';
-    return 'https://jagatfilm.com/api/img?url=${Uri.encodeComponent(cover)}';
+    return '${AppConfig.apiBaseUrl}/api/img?url=${Uri.encodeComponent(cover)}';
   }
 
   WatchlistItem copyWith({

@@ -1,3 +1,4 @@
+import '../utils/app_config.dart';
 /// Safe integer parser - handles both int and String from API
 int _parseInt(dynamic value) {
   if (value is int) return value;
@@ -52,12 +53,12 @@ class Drama {
   /// Get proxied cover URL via JagatFilm image proxy
   String get proxiedCover {
     if (cover.isEmpty) return '';
-    return 'https://jagatfilm.com/api/img?url=${Uri.encodeComponent(cover)}';
+    return '${AppConfig.apiBaseUrl}/api/img?url=${Uri.encodeComponent(cover)}';
   }
 
   String get proxiedCoverHorizontal {
     if (coverHorizontal == null || coverHorizontal!.isEmpty) return proxiedCover;
-    return 'https://jagatfilm.com/api/img?url=${Uri.encodeComponent(coverHorizontal!)}';
+    return '${AppConfig.apiBaseUrl}/api/img?url=${Uri.encodeComponent(coverHorizontal!)}';
   }
 
   /// Kode singkat 2 huruf untuk badge sumber drama (misal shortmax → SM).
@@ -172,12 +173,12 @@ class StreamData {
   /// Get HLS proxied URL for playback
   String get proxiedHdUrl {
     if (hdUrl.isEmpty) return proxiedSdUrl;
-    return 'https://jagatfilm.com/api/hls?url=${Uri.encodeComponent(hdUrl)}';
+    return '${AppConfig.apiBaseUrl}/api/hls?url=${Uri.encodeComponent(hdUrl)}';
   }
 
   String get proxiedSdUrl {
     if (sdUrl.isEmpty) return '';
-    return 'https://jagatfilm.com/api/hls?url=${Uri.encodeComponent(sdUrl)}';
+    return '${AppConfig.apiBaseUrl}/api/hls?url=${Uri.encodeComponent(sdUrl)}';
   }
 }
 
@@ -203,6 +204,6 @@ class Subtitle {
   /// Get proxied subtitle URL
   String get proxiedUrl {
     if (url.isEmpty) return '';
-    return 'https://jagatfilm.com/api/subtitle?url=${Uri.encodeComponent(url)}';
+    return '${AppConfig.apiBaseUrl}/api/subtitle?url=${Uri.encodeComponent(url)}';
   }
 }

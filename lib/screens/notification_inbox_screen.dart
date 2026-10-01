@@ -9,6 +9,7 @@ import '../main.dart';
 import '../theme/app_theme.dart';
 import 'search_screen.dart';
 import 'login_screen.dart';
+import '../utils/app_config.dart';
 
 /// Notification inbox screen — shows all notifications from server.
 class NotificationInboxScreen extends StatefulWidget {
@@ -38,7 +39,7 @@ class _NotificationInboxScreenState extends State<NotificationInboxScreen> {
       });
 
       final uri = Uri.parse(
-              'https://masterpanel.jagatfilm.com/api/notifications')
+              '${AppConfig.adminBaseUrl}/api/notifications')
           .replace(queryParameters: {
         't': DateTime.now().millisecondsSinceEpoch.toString(),
       });

@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
+import '../utils/app_config.dart';
 
 class AuthService extends ChangeNotifier {
-  static const String _baseUrl = 'https://jagatfilm.com';
+  static String get _baseUrl => AppConfig.apiBaseUrl;
 
   User? _user;
   String? _token;

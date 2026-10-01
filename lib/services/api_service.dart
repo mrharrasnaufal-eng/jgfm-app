@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/drama.dart';
 import '../models/feed_item.dart';
+import '../utils/app_config.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://jagatfilm.com';
+  static String get baseUrl => AppConfig.apiBaseUrl;
   static final ApiService _instance = ApiService._();
   factory ApiService() => _instance;
   ApiService._();

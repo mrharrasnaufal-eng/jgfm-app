@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/app_config.dart';
 
 /// Analytics service — kirim heartbeat device ke backend untuk tracking:
 /// install (device_id + versi + model + os) + frekuensi online + status online.
@@ -17,7 +18,7 @@ class AnalyticsService {
       MethodChannel('com.jagatfilm.jagatfilm/notifications');
 
   static const String _deviceIdKey = 'jgfm_device_id';
-  static const String _endpoint = 'https://www.jagatfilm.com/api/app/heartbeat';
+  static String get _endpoint => '${AppConfig.apiBaseUrl}/api/app/heartbeat';
 
   Timer? _timer;
   bool _started = false;

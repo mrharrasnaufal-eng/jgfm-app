@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/app_config.dart';
 
 /// A single notification item delivered from MasterPanel.
 class AppNotification {
@@ -98,7 +99,7 @@ class NotificationService {
   static final NotificationService instance = NotificationService._();
 
   static const String _endpoint =
-      'https://masterpanel.jagatfilm.com/api/notifications';
+      '${AppConfig.adminBaseUrl}/api/notifications';
   static const String _shownIdsKey = 'shown_notification_ids';
   static const String _pendingActionKey = 'pending_notification_action';
   static const int _maxShownIds = 200;
@@ -162,7 +163,7 @@ class NotificationService {
   static const String _permPromptedAtKey = 'notification_perm_prompted_at';
   static const String _onOpenNotifAtKey = 'on_open_drama_notif_at';
   static const String _randomDramaEndpoint =
-      'https://masterpanel.jagatfilm.com/api/notifications/auto/random';
+      '${AppConfig.adminBaseUrl}/api/notifications/auto/random';
 
   Future<bool> areNotificationsEnabled() async {
     try {

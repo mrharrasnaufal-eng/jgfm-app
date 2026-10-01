@@ -1,3 +1,4 @@
+import '../utils/app_config.dart';
 /// Model for a watch history entry.
 class WatchHistory {
   final String dramaId;
@@ -23,7 +24,7 @@ class WatchHistory {
   /// Proxied cover URL via JagatFilm image proxy.
   String get proxiedCover {
     if (cover.isEmpty) return '';
-    return 'https://jagatfilm.com/api/img?url=${Uri.encodeComponent(cover)}';
+    return '${AppConfig.apiBaseUrl}/api/img?url=${Uri.encodeComponent(cover)}';
   }
 
   /// Human-readable relative time.

@@ -9,6 +9,7 @@ import '../../utils/constants.dart';
 import '../../widgets/badge_pill.dart';
 import '../../widgets/filter_pills.dart';
 import '../detail_screen.dart';
+import '../../utils/app_config.dart';
 
 class PeringkatTab extends StatefulWidget {
   const PeringkatTab({super.key});
@@ -540,6 +541,6 @@ class _RankedDrama {
 
   String get proxiedCover {
     if (cover.isEmpty) return '';
-    return 'https://jagatfilm.com/api/img?url=${Uri.encodeComponent(cover)}';
+    return '${AppConfig.apiBaseUrl}/api/img?url=${Uri.encodeComponent(cover)}';
   }
 }

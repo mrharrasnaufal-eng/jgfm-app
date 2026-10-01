@@ -7,6 +7,7 @@ import '../services/ad_service.dart';
 import '../services/api_service.dart';
 import '../services/history_service.dart';
 import '../services/watchlist_service.dart';
+import '../utils/app_config.dart';
 
 class PlayerScreen extends StatefulWidget {
   final Drama drama;
@@ -71,7 +72,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (url.contains('foshort.com')) {
       headers['Referer'] = 'https://bilitv.com/';
     } else if (url.contains('shortmax') || url.contains('reelshort')) {
-      headers['Referer'] = 'https://jagatfilm.com/';
+      headers['Referer'] = '${AppConfig.apiBaseUrl}/';
     }
     return headers;
   }

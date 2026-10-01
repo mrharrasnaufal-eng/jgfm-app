@@ -8,6 +8,7 @@ import '../../theme/app_theme.dart';
 import '../../utils/constants.dart';
 import '../../widgets/badge_pill.dart';
 import '../detail_screen.dart';
+import '../../utils/app_config.dart';
 
 class TerbaruTab extends StatefulWidget {
   const TerbaruTab({super.key});
@@ -435,6 +436,6 @@ class _NewestDrama {
 
   String get proxiedCover {
     if (cover.isEmpty) return '';
-    return 'https://jagatfilm.com/api/img?url=${Uri.encodeComponent(cover)}';
+    return '${AppConfig.apiBaseUrl}/api/img?url=${Uri.encodeComponent(cover)}';
   }
 }

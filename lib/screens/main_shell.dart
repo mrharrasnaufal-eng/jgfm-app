@@ -12,6 +12,7 @@ import 'home_screen.dart';
 import 'notification_inbox_screen.dart';
 import 'profile_screen.dart';
 import 'watchlist_screen.dart';
+import '../utils/app_config.dart';
 
 /// MainShell — wrapper bottom navigation dengan IndexedStack.
 /// Preserve state setiap tab menggunakan IndexedStack.
@@ -52,7 +53,7 @@ class _MainShellState extends State<MainShell> {
       final readIds = prefs.getStringList('read_notification_ids') ?? [];
 
       // Fetch notification count from server.
-      final uri = Uri.parse('https://masterpanel.jagatfilm.com/api/notifications')
+      final uri = Uri.parse('${AppConfig.adminBaseUrl}/api/notifications')
           .replace(queryParameters: {
         't': DateTime.now().millisecondsSinceEpoch.toString(),
       });
@@ -88,7 +89,7 @@ class _MainShellState extends State<MainShell> {
     // Mark all current notifications as read.
     try {
       final prefs = await SharedPreferences.getInstance();
-      final uri = Uri.parse('https://masterpanel.jagatfilm.com/api/notifications')
+      final uri = Uri.parse('${AppConfig.adminBaseUrl}/api/notifications')
           .replace(queryParameters: {
         't': DateTime.now().millisecondsSinceEpoch.toString(),
       });

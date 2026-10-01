@@ -6,12 +6,13 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/coin_transaction.dart';
+import '../utils/app_config.dart';
 
 /// Fungsional coin service — connects to backend API.
 /// Device ID based (no login required to earn).
 /// Login required only for withdrawal.
 class CoinService extends ChangeNotifier {
-  static const String _baseUrl = 'https://jagatfilm.com/api/coins';
+  static String get _baseUrl => '${AppConfig.apiBaseUrl}/api/coins';
   static const String _deviceIdKey = 'jgfm_device_id';
 
   /// Native bridge (same channel used by notifications).

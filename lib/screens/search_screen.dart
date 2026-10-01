@@ -14,6 +14,7 @@ import '../services/api_service.dart';
 import '../widgets/drama_card_grid.dart';
 import '../widgets/shimmer_grid.dart';
 import 'detail_screen.dart';
+import '../utils/app_config.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -155,7 +156,7 @@ class _SearchScreenState extends State<SearchScreen> {
     if (q.isEmpty) return;
     http
         .post(
-          Uri.parse('https://www.jagatfilm.com/api/search/log'),
+          Uri.parse('${AppConfig.apiBaseUrl}/api/search/log'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({'query': q}),
         )

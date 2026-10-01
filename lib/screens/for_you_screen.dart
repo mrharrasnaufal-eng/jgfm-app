@@ -13,6 +13,7 @@ import '../services/coin_service.dart';
 import '../services/watchlist_service.dart';
 import 'detail_screen.dart';
 import 'search_screen.dart';
+import '../utils/app_config.dart';
 
 /// Feed "Untuk Anda" — Reels-style: satu layar satu video (episode 1),
 /// swipe atas/bawah pindah drama, 3 tombol aksi: Like / Bagikan / Daftarku.
@@ -225,7 +226,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
       await SharePlus.instance.share(ShareParams(
         text:
             'Nonton "${item.drama.title}" gratis di JagatFilm! 🎬\n'
-            'https://jagatfilm.com/drama/${item.drama.id}',
+            '${AppConfig.apiBaseUrl}/drama/${item.drama.id}',
       ));
     } catch (_) {
       // Share gagal — abaikan (opsional).
@@ -440,7 +441,7 @@ class _FeedPageState extends State<_FeedPage> {
     if (url.contains('foshort.com')) {
       headers['Referer'] = 'https://bilitv.com/';
     } else if (url.contains('shortmax') || url.contains('reelshort')) {
-      headers['Referer'] = 'https://jagatfilm.com/';
+      headers['Referer'] = '${AppConfig.apiBaseUrl}/';
     }
     return headers;
   }

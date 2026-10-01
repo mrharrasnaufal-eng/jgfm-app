@@ -28,6 +28,7 @@ import 'services/remote_config_service.dart';
 import 'services/update_service.dart';
 import 'services/watchlist_service.dart';
 import 'theme/app_theme.dart';
+import 'utils/app_config.dart';
 import 'widgets/remote_config_popup.dart';
 
 void main() {
@@ -151,6 +152,12 @@ class _MainScreenState extends State<MainScreen> {
 
     if (!mounted) return;
     setState(() => _config = loadedConfig);
+    if (loadedConfig.apiBaseUrl.isNotEmpty) {
+      AppConfig.apiBaseUrl = loadedConfig.apiBaseUrl;
+    }
+    if (loadedConfig.adminBaseUrl.isNotEmpty) {
+      AppConfig.adminBaseUrl = loadedConfig.adminBaseUrl;
+    }
     AdService.interstitialAdsEnabled = loadedConfig.interstitialAdsEnabled;
     unawaited(AnalyticsService.instance.start());
 
@@ -319,7 +326,7 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _openDramaDetail(String id) async {
     try {
       final uri = Uri.parse(
-        'https://www.jagatfilm.com/api/drama/detail?id=${Uri.encodeComponent(id)}',
+        '${AppConfig.apiBaseUrl}/api/drama/detail?id=${Uri.encodeComponent(id)}',
       );
       final res = await http
           .get(uri, headers: const {'Accept': 'application/json'})

@@ -25,6 +25,12 @@ class AppRemoteConfig {
   /// Default true. Bisa di-toggle dari MasterPanel.
   final bool interstitialAdsEnabled;
 
+  /// Base URL API data (dramas/stream/img/subtitle). Default jagatfilm.com.
+  final String apiBaseUrl;
+
+  /// Base URL admin/panel (notifikasi). Default masterpanel.jagatfilm.com.
+  final String adminBaseUrl;
+
   const AppRemoteConfig({
     required this.logoUrl,
     required this.splashImageUrl,
@@ -43,6 +49,8 @@ class AppRemoteConfig {
     required this.homeProvider,
     this.forYouProviders = const [],
     this.interstitialAdsEnabled = true,
+    this.apiBaseUrl = 'https://jagatfilm.com',
+    this.adminBaseUrl = 'https://masterpanel.jagatfilm.com',
   });
 
   const AppRemoteConfig.defaults()
@@ -62,7 +70,9 @@ class AppRemoteConfig {
         minimumVersion = '1.0.0',
         homeProvider = 'shortmax',
         forYouProviders = const [],
-        interstitialAdsEnabled = true;
+        interstitialAdsEnabled = true,
+        apiBaseUrl = 'https://jagatfilm.com',
+        adminBaseUrl = 'https://masterpanel.jagatfilm.com';
 
   factory AppRemoteConfig.fromJson(Map<String, dynamic> json) {
     final popupAction = _popupAction(json['popup_action_url']);
@@ -93,6 +103,12 @@ class AppRemoteConfig {
       interstitialAdsEnabled: json['interstitial_ads_enabled'] == null
           ? true
           : _boolValue(json['interstitial_ads_enabled']),
+      apiBaseUrl: _safeHttpUrl(json['api_base_url']).isEmpty
+          ? 'https://jagatfilm.com'
+          : _safeHttpUrl(json['api_base_url']),
+      adminBaseUrl: _safeHttpUrl(json['admin_base_url']).isEmpty
+          ? 'https://masterpanel.jagatfilm.com'
+          : _safeHttpUrl(json['admin_base_url']),
     );
   }
 

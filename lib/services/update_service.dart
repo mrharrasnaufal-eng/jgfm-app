@@ -4,12 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../utils/app_config.dart';
 
 class UpdateService {
   static const String _versionUrl =
-      'https://www.jagatfilm.com/app/version.json';
+      '${AppConfig.apiBaseUrl}/app/version.json';
   static const String _fallbackApkUrl =
-      'https://jagatfilm.com/download/app-release.apk';
+      '${AppConfig.apiBaseUrl}/download/app-release.apk';
 
   /// Get current app version safely.
   static Future<Map<String, String>> getAppVersion() async {
